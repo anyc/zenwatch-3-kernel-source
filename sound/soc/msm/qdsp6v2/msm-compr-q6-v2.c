@@ -187,7 +187,7 @@ static void compr_event_handler(uint32_t opcode,
 		pr_debug("%s:writing %d bytes of buffer[%d] to dsp 2\n",
 				__func__, prtd->pcm_count, prtd->out_head);
 		temp = buf[0].phys + (prtd->out_head * prtd->pcm_count);
-		pr_debug("%s:writing buffer[%d] from 0x%pa\n",
+		pr_debug("%s:writing buffer[%d] from 0x%pk\n",
 			__func__, prtd->out_head, &temp);
 
 		if (runtime->tstamp_mode == SNDRV_PCM_TSTAMP_ENABLE)
@@ -238,7 +238,7 @@ static void compr_event_handler(uint32_t opcode,
 		break;
 	case ASM_DATA_EVENT_READ_DONE_V2: {
 		pr_debug("ASM_DATA_EVENT_READ_DONE\n");
-		pr_debug("buf = %p, data = 0x%X, *data = %p,\n"
+		pr_debug("buf = %pk, data = 0x%X, *data = %pk,\n"
 			 "prtd->pcm_irq_pos = %d\n",
 				prtd->audio_client->port[OUT].buf,
 			 *(uint32_t *)prtd->audio_client->port[OUT].buf->data,
@@ -248,7 +248,7 @@ static void compr_event_handler(uint32_t opcode,
 		memcpy(prtd->audio_client->port[OUT].buf->data +
 			   prtd->pcm_irq_pos, (ptrmem + READDONE_IDX_SIZE),
 			   COMPRE_CAPTURE_HEADER_SIZE);
-		pr_debug("buf = %p, updated data = 0x%X, *data = %p\n",
+		pr_debug("buf = %pk, updated data = 0x%X, *data = %pk\n",
 				prtd->audio_client->port[OUT].buf,
 			*(uint32_t *)(prtd->audio_client->port[OUT].buf->data +
 				prtd->pcm_irq_pos),
@@ -264,7 +264,7 @@ static void compr_event_handler(uint32_t opcode,
 		}
 		buf = prtd->audio_client->port[OUT].buf;
 
-		pr_debug("pcm_irq_pos=%d, buf[0].phys = 0x%pa\n",
+		pr_debug("pcm_irq_pos=%d, buf[0].phys = 0x%pk\n",
 				prtd->pcm_irq_pos, &buf[0].phys);
 		read_param.len = prtd->pcm_count - COMPRE_CAPTURE_HEADER_SIZE;
 		read_param.paddr = buf[0].phys +
@@ -290,7 +290,7 @@ static void compr_event_handler(uint32_t opcode,
 			pr_debug("%s: writing %d bytes of buffer[%d] to dsp\n",
 				__func__, prtd->pcm_count, prtd->out_head);
 			buf = prtd->audio_client->port[IN].buf;
-			pr_debug("%s: writing buffer[%d] from 0x%pa head %d count %d\n",
+			pr_debug("%s: writing buffer[%d] from 0x%pk head %d count %d\n",
 				__func__, prtd->out_head, &buf[0].phys,
 				prtd->pcm_count, prtd->out_head);
 			if (runtime->tstamp_mode == SNDRV_PCM_TSTAMP_ENABLE)
@@ -605,7 +605,7 @@ static int msm_compr_capture_prepare(struct snd_pcm_substream *substream)
 					- COMPRE_CAPTURE_HEADER_SIZE;
 			read_param.paddr = buf[i].phys
 					+ COMPRE_CAPTURE_HEADER_SIZE;
-			pr_debug("Push buffer [%d] to DSP, paddr: %pa, vaddr: %p\n",
+			pr_debug("Push buffer [%d] to DSP, paddr: %pk, vaddr: %pk\n",
 					i, &read_param.paddr,
 					buf[i].data);
 			q6asm_async_read(prtd->audio_client, &read_param);
@@ -951,7 +951,7 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 	dma_buf->addr =  buf[0].phys;
 	dma_buf->bytes = runtime->hw.buffer_bytes_max;
 
-	pr_debug("%s: buf[%p]dma_buf->area[%p]dma_buf->addr[%pa]\n"
+	pr_debug("%s: buf[%pk]dma_buf->area[%pk]dma_buf->addr[%pk]\n"
 		 "dma_buf->bytes[%zd]\n", __func__,
 		 (void *)buf, (void *)dma_buf->area,
 		 &dma_buf->addr, dma_buf->bytes);

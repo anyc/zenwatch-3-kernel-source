@@ -292,7 +292,7 @@ static int reg_ion_mem(void)
 				 &po.kvaddr);
 	if (rc != 0)
 		pr_err("%s: failed to allocate memory.\n", __func__);
-		pr_debug("%s: exited ion_client = %p, ion_handle = %p, phys_addr = %lu, length = %d, vaddr = %p, rc = 0x%x\n",
+		pr_debug("%s: exited ion_client = %pk, ion_handle = %pk, phys_addr = %lu, length = %d, vaddr = %pk, rc = 0x%x\n",
 			__func__, ion_client, ion_handle, (long)po.paddr,
 			(unsigned int)po.size, po.kvaddr, rc);
 	return rc;

@@ -1057,7 +1057,8 @@ static int mdp3_ctrl_reset(struct msm_fb_data_type *mfd)
 	panel = mdp3_session->panel;
 	mdp3_dma = mdp3_session->dma;
 	mutex_lock(&mdp3_session->lock);
-	if (mdp3_res->idle_pc) {
+	if (mdp3_res->idle_pc ||
+		(mdp3_res->fs_ena && !mdp3_session->in_splash_screen)) {
 		mdp3_clk_enable(1, 0);
 		mdp3_dynamic_clock_gating_ctrl(0);
 		mdp3_qos_remapper_setup(panel);

@@ -419,6 +419,7 @@ struct qpnp_lbc_chip *g_lbc_chip;
 
 static bool g_bat_is_cooler = false;
 static bool g_bat_is_warmer = false;
+static bool bat_warm = 0, bat_cool = 0;
 extern void adc_notification_set_cool_current(int level);
 extern void adc_notification_set_warm_current(int level);
 extern struct completion qpnp_linear_init;
@@ -1436,7 +1437,7 @@ static int get_prop_batt_temp(struct qpnp_lbc_chip *chip)
 		pr_debug("Unable to read batt temperature rc=%d\n", rc);
 		return DEFAULT_TEMP;
 	}
-	pr_info("[BAT][CHG] get_bat_temp %d, %lld\n", results.adc_code, results.physical);
+	pr_debug("[BAT][CHG] get_bat_temp %d, %lld\n", results.adc_code, results.physical);
 
 	return (int)results.physical;
 }
@@ -2061,9 +2062,9 @@ static void asus_bat_is_warmer_check_work(struct work_struct *work)
 static void qpnp_lbc_jeita_adc_notification(enum qpnp_tm_state state, void *ctx)
 {
 	struct qpnp_lbc_chip *chip = ctx;
-	bool bat_warm = 0, bat_cool = 0;
 	int temp, temp_offset = 0;
 	unsigned long flags;
+	int usb_present;
 
 	if (state >= ADC_TM_STATE_NUM) {
 		pr_err("invalid notification %d\n", state);
@@ -2071,6 +2072,8 @@ static void qpnp_lbc_jeita_adc_notification(enum qpnp_tm_state state, void *ctx)
 	}
 
 	temp = get_prop_batt_temp(chip);
+
+	usb_present = qpnp_lbc_is_usb_chg_plugged_in(chip);
 
 	if ((temp > chip->cfg_cool_bat_decidegc) && (300 - temp >= 0)) {
 		if (temp - chip->cfg_cool_bat_decidegc >= 30)
@@ -2095,11 +2098,11 @@ static void qpnp_lbc_jeita_adc_notification(enum qpnp_tm_state state, void *ctx)
 			schedule_delayed_work(&chip->bat_is_warmer_check_work,
 				msecs_to_jiffies(EOC_CHECK_PERIOD_MS));
 			pr_info("Normal to warm!\n");
-		} else if (temp >=
-			chip->cfg_cool_bat_decidegc + HYSTERISIS_DECIDEGC) {
+		} else if ((temp >= chip->cfg_cool_bat_decidegc + HYSTERISIS_DECIDEGC) && (bat_cool == true)) {
 			/* Cool to normal */
 			bat_warm = false;
 			bat_cool = false;
+
 			adc_notification_set_cool_current(JEITA_disable_cool);
 
 			chip->adc_param.low_temp =
@@ -2110,8 +2113,7 @@ static void qpnp_lbc_jeita_adc_notification(enum qpnp_tm_state state, void *ctx)
 					ADC_TM_HIGH_LOW_THR_ENABLE;
 
 			pr_info("Cool to normal!\n");
-		}
-		if ((temp <= chip->cfg_cool_bat_decidegc) ||
+		} else if ((temp <= chip->cfg_cool_bat_decidegc) ||
 				(temp <= chip->cfg_cool_bat_decidegc + temp_offset)) {
 			/* Normal to cool */
 			bat_warm = false;
@@ -2127,8 +2129,7 @@ static void qpnp_lbc_jeita_adc_notification(enum qpnp_tm_state state, void *ctx)
 			schedule_delayed_work(&chip->bat_is_cooler_check_work,
 				msecs_to_jiffies(EOC_CHECK_PERIOD_MS));
 			pr_info("Normal to cool!\n");
-		} else if (temp <= (chip->cfg_warm_bat_decidegc -
-					HYSTERISIS_DECIDEGC)){
+		} else if (temp <= (chip->cfg_warm_bat_decidegc - HYSTERISIS_DECIDEGC) && (bat_warm == true)) {
 			/* Warm to normal */
 			bat_warm = false;
 			bat_cool = false;
@@ -2675,6 +2676,14 @@ static irqreturn_t qpnp_lbc_usbin_valid_irq_fake_handler(int irq, void *_chip)
 
 	usb_present = qpnp_lbc_is_usb_chg_plugged_in(chip);
 	pr_info("usbin-valid_irq_fake triggered: %d\n", usb_present);
+
+	if ((usb_present != 1) && (g_bat_is_cooler || g_bat_is_warmer)) {
+		g_bat_is_cooler = false;
+		g_bat_is_warmer = false;
+		mutex_unlock(&chip->bat_is_cooler_lock);
+		mutex_unlock(&chip->bat_is_warmer_lock);
+		pr_info("cancel cooler/warmer schedule_delayed_work");
+	}
 
 	return IRQ_HANDLED;
 }

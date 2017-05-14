@@ -743,6 +743,12 @@ static int smb23x_charging_disable(struct smb23x_chip *chip,
 	return rc;
 }
 
+void smb23x_charging_disable_control(bool flag)
+{
+	smb23x_charging_disable(g_smb23x_chip, USER, flag);
+}
+EXPORT_SYMBOL(smb23x_charging_disable_control);
+
 static struct power_supply *get_parallel_psy(struct smb23x_chip *chip)
 {
 	if (chip->parallel_psy)
@@ -955,15 +961,6 @@ static void smb23x_parallel_work(struct work_struct *work)
 							chip->cfg_fastchg_ma);
 
 		smb23x_enable_volatile_writes(chip);
-
-		// Set input current limit value follow register setting
-		smb23x_masked_write(chip, CMD_REG_1, USBAC_MODE_BIT, 0x01);
-
-		// Set system voltage to VBATT tracking(VBATT + 250mV)
-		smb23x_masked_write(chip, CFG_REG_4, SYSTEM_VOLTAGE_MASK, 0x2);
-
-		// Set system voltage threshold for initiating charge current deduction
-		smb23x_masked_write(chip, CFG_REG_6, CHG_CHARGE_SYS_VOLT_MASK, 0x20);
 
 		if (type == POWER_SUPPLY_TYPE_USB_DCP) {
 			// Set SMB231 input current limit to 300mA
@@ -1318,23 +1315,35 @@ static int smb23x_hw_init(struct smb23x_chip *chip)
 
 void adc_notification_set_cool_current(int level)
 {
+	int type;
+	type = g_smb23x_chip->usb_psy->type;
+
 	if (g_smb23x_chip) {
 		if (level == 1) { // JEITA_enbale_cool
-			lbc_set_suspend(0x01);
+			if (type == POWER_SUPPLY_TYPE_USB_DCP || type == POWER_SUPPLY_TYPE_USB_CDP)
+				lbc_set_suspend(0x01);
 			g_smb23x_chip->batt_cool = true;
 			smb23x_enable_volatile_writes(g_smb23x_chip);
-			smb23x_masked_write(g_smb23x_chip, CFG_REG_0, USBIN_ICL_MASK, 0x04);
-			smb23x_masked_write(g_smb23x_chip, CFG_REG_2, FASTCHG_CURR_MASK, 0x01);
+			if (type != POWER_SUPPLY_TYPE_UNKNOWN) {
+				smb23x_masked_write(g_smb23x_chip, CFG_REG_0, USBIN_ICL_MASK, 0x04);
+				smb23x_masked_write(g_smb23x_chip, CFG_REG_2, FASTCHG_CURR_MASK, 0x01);
+			}
 			pr_info("JEITA_enbale_cool!\n");
 		} if (level == 2) { // JEITA_enable_cooler
-			lbc_set_suspend(0x01);
+			if (type == POWER_SUPPLY_TYPE_USB_DCP || type == POWER_SUPPLY_TYPE_USB_CDP)
+				lbc_set_suspend(0x01);
 			g_smb23x_chip->batt_cool = true;
 			smb23x_enable_volatile_writes(g_smb23x_chip);
-			smb23x_masked_write(g_smb23x_chip, CFG_REG_0, USBIN_ICL_MASK, 0x04);
-			smb23x_masked_write(g_smb23x_chip, CFG_REG_2, FASTCHG_CURR_MASK, 0x00);
+			if (type != POWER_SUPPLY_TYPE_UNKNOWN) {
+				smb23x_masked_write(g_smb23x_chip, CFG_REG_0, USBIN_ICL_MASK, 0x04);
+				smb23x_masked_write(g_smb23x_chip, CFG_REG_2, FASTCHG_CURR_MASK, 0x00);
+			}
 			pr_info("JEITA_enable_cooler!\n");
 		} else if (level == 0) { // JEITA_disable_cool
-			lbc_set_suspend(0x00);
+			if (type == POWER_SUPPLY_TYPE_USB_DCP || type == POWER_SUPPLY_TYPE_USB_CDP) {
+				lbc_set_suspend(0x00);
+				smb23x_masked_write(g_smb23x_chip, CFG_REG_2, FASTCHG_CURR_MASK, 0x07);
+			}
 			g_smb23x_chip->batt_cool = false;
 			smb23x_enable_volatile_writes(g_smb23x_chip);
 			smb23x_masked_write(g_smb23x_chip, CFG_REG_5, AICL_EN_BIT, 0);
@@ -1352,25 +1361,35 @@ EXPORT_SYMBOL(adc_notification_set_cool_current);
 
 void adc_notification_set_warm_current(int level)
 {
+	int type;
+	type = g_smb23x_chip->usb_psy->type;
+
 	if (g_smb23x_chip) {
 		if (level == 1) { // JEITA_enbale_warm
-			lbc_set_suspend(0x00);
+			if (type == POWER_SUPPLY_TYPE_USB_DCP || type == POWER_SUPPLY_TYPE_USB_CDP)
+				lbc_set_suspend(0x00);
 			g_smb23x_chip->batt_warm = true;
 			smb23x_enable_volatile_writes(g_smb23x_chip);
 			smb23x_masked_write(g_smb23x_chip, CFG_REG_3, FLOAT_VOLTAGE_MASK, 0x17);
-			smb23x_masked_write(g_smb23x_chip, CFG_REG_0, USBIN_ICL_MASK, 0x04);
-			smb23x_masked_write(g_smb23x_chip, CFG_REG_2, FASTCHG_CURR_MASK, 0x07);
+			if (type != POWER_SUPPLY_TYPE_UNKNOWN) {
+				smb23x_masked_write(g_smb23x_chip, CFG_REG_0, USBIN_ICL_MASK, 0x04);
+				smb23x_masked_write(g_smb23x_chip, CFG_REG_2, FASTCHG_CURR_MASK, 0x07);
+			}
 			pr_info("JEITA_enbale_warm!\n");
 		} else if (level == 2) { // JEITA_enable_warmer
-			lbc_set_suspend(0x01);
+			if (type == POWER_SUPPLY_TYPE_USB_DCP || type == POWER_SUPPLY_TYPE_USB_CDP)
+				lbc_set_suspend(0x01);
 			g_smb23x_chip->batt_warm = true;
 			smb23x_enable_volatile_writes(g_smb23x_chip);
 			smb23x_masked_write(g_smb23x_chip, CFG_REG_3, FLOAT_VOLTAGE_MASK, 0x0F);
-			smb23x_masked_write(g_smb23x_chip, CFG_REG_0, USBIN_ICL_MASK, 0x04);
-			smb23x_masked_write(g_smb23x_chip, CFG_REG_2, FASTCHG_CURR_MASK, 0);
+			if (type != POWER_SUPPLY_TYPE_UNKNOWN) {
+				smb23x_masked_write(g_smb23x_chip, CFG_REG_0, USBIN_ICL_MASK, 0x04);
+				smb23x_masked_write(g_smb23x_chip, CFG_REG_2, FASTCHG_CURR_MASK, 0);
+			}
 			pr_info("JEITA_enable_warmer!\n");
 		} else { // JEITA_disable_warm
-			lbc_set_suspend(0x00);
+			if (type == POWER_SUPPLY_TYPE_USB_DCP || type == POWER_SUPPLY_TYPE_USB_CDP)
+				lbc_set_suspend(0x00);
 			g_smb23x_chip->batt_warm = false;
 			smb23x_enable_volatile_writes(g_smb23x_chip);
 			smb23x_masked_write(g_smb23x_chip, CFG_REG_3, FLOAT_VOLTAGE_MASK, 0x17);
@@ -1482,7 +1501,7 @@ static int chg_error_irq_handler(struct smb23x_chip *chip, u8 rt_sts)
 static int recharge_irq_handler(struct smb23x_chip *chip, u8 rt_sts)
 {
 	pr_info("BAT][CHG] rt_sts = 0x02%x\n", rt_sts);
-	chip->batt_full = !rt_sts;
+	chip->batt_full = false;
 
 	smb23x_enable_volatile_writes(chip);
 
@@ -1601,9 +1620,11 @@ static int aicl_done_irq_handler(struct smb23x_chip *chip, u8 rt_sts)
 {
 	pr_info("[BAT][CHG] rt_sts = 0x02%x\n", rt_sts);
 	if (chip->parallel_charging && rt_sts == 0x10 && chip->parallel_count <= 4) {
-		smb23x_enable_volatile_writes(chip);
-		smb23x_stay_awake(&chip->smb23x_ws, WAKEUP_SRC_PARALLEL);
-		schedule_delayed_work(&chip->parallel_work, msecs_to_jiffies(EOC_CHECK_PERIOD_MS));
+		if (!chip->batt_warm && !chip->batt_cool) {
+			smb23x_enable_volatile_writes(chip);
+			smb23x_stay_awake(&chip->smb23x_ws, WAKEUP_SRC_PARALLEL);
+			schedule_delayed_work(&chip->parallel_work, msecs_to_jiffies(EOC_CHECK_PERIOD_MS));
+		}
 	}
 	return 0;
 }
@@ -2033,6 +2054,7 @@ static enum power_supply_property smb23x_battery_properties[] = {
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_PRESENT,
+	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
@@ -2246,6 +2268,9 @@ static int smb23x_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 		val->intval = smb23x_get_prop_batt_present(chip);
+		break;
+	case POWER_SUPPLY_PROP_TECHNOLOGY:
+		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
 		break;
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		val->intval = smb23x_get_prop_charging_enabled(chip);
@@ -2793,6 +2818,17 @@ static int smb23x_probe(struct i2c_client *client,
 
 	g_smb23x_chip = chip;
 	smb23x_enable_volatile_writes(chip);
+
+	// Set input current limit value follow register setting
+	smb23x_masked_write(chip, CMD_REG_1, USBAC_MODE_BIT, 0x01);
+
+	// Set system voltage to VBATT tracking(VBATT + 250mV)
+	smb23x_masked_write(chip, CFG_REG_4, SYSTEM_VOLTAGE_MASK, 0x2);
+
+	// Set system voltage threshold for initiating charge current deduction
+	smb23x_masked_write(chip, CFG_REG_6, CHG_CHARGE_SYS_VOLT_MASK, 0x20);
+
+	// Set ICHG to 100mA
 	smb23x_masked_write(chip, CFG_REG_3, FASTCHG_CURR_SOFT_COMP, 0);
 
 	// Disable smb231 soft temp behavior
@@ -2805,6 +2841,8 @@ static int smb23x_probe(struct i2c_client *client,
 
 	// Disable battery over-voltage behavior
 	smb23x_masked_write(chip, CFG_REG_2, BATT_OV_SHUTDOWN_BIT, 0);
+
+	lbc_set_suspend(0x01);
 
 	chip->parallel_count = 0;
 

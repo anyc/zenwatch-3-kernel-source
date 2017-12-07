@@ -364,6 +364,7 @@ enum {
 
 enum {
 	WRKRND_IRQ_POLLING = BIT(0),
+	WRKRND_USB_SUSPEND = BIT(1),
 };
 
 static irqreturn_t smb23x_stat_handler(int irq, void *dev_id);
@@ -865,11 +866,15 @@ static int smb23x_set_appropriate_usb_current(struct smb23x_chip *chip)
 	current_ma = min(therm_ma, usb_current);
 #if 0
 	if (current_ma <= CURRENT_SUSPEND) {
-		/* suspend USB input */
-		rc = smb23x_suspend_usb(chip, CURRENT, true);
-		if (rc)
-			pr_err("Suspend USB failed, rc=%d\n", rc);
-		return rc;
+		if (chip->workaround_flags & WRKRND_USB_SUSPEND) {
+			current_ma = CURRENT_100_MA;
+		} else {
+			/* suspend USB input */
+			rc = smb23x_suspend_usb(chip, CURRENT, true);
+			if (rc)
+				pr_err("Suspend USB failed, rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	if (current_ma <= CURRENT_100_MA) {
@@ -905,7 +910,8 @@ static int smb23x_set_appropriate_usb_current(struct smb23x_chip *chip)
 		pr_err("Set ICL failed\n, rc=%d\n", rc);
 		return rc;
 	}
-	pr_debug("ICL set to = %d\n", usbin_current_ma_table[tmp]);
+	pr_debug("ICL set to = %d\n",
+			usbin_current_ma_table[tmp >> USBIN_ICL_OFFSET]);
 #endif
 	/* un-suspend USB input */
 	rc = smb23x_suspend_usb(chip, CURRENT, false);
@@ -995,10 +1001,10 @@ static void smb23x_parallel_work(struct work_struct *work)
 				smb23x_masked_write(chip, CFG_REG_0, USBIN_ICL_MASK, 0x00);
 				lbc_set_suspend(0x01);
 
-				pr_info("[BAT][CHG] GPIO_17 set to 0, MPP4_read:%d, USB_TYPE:UNKNOWN\n", MPP4_read);
+				pr_info("[BAT][CHG] GPIO_17 set to 0, MPP4_read:%d, USB_TYPE:MAINS\n", MPP4_read);
 			}
 			gpio_set_value(GPIO_num17,0);
-		} else if (type == POWER_SUPPLY_TYPE_UNKNOWN) {
+		} else if (type == POWER_SUPPLY_TYPE_MAINS) {
 			if (chip->usb_present == 1) {
 				// Set SMB231 input current limit to 100mA
 				smb23x_masked_write(chip, CFG_REG_0, USBIN_ICL_MASK, 0x00);
@@ -1324,7 +1330,7 @@ void adc_notification_set_cool_current(int level)
 				lbc_set_suspend(0x01);
 			g_smb23x_chip->batt_cool = true;
 			smb23x_enable_volatile_writes(g_smb23x_chip);
-			if (type != POWER_SUPPLY_TYPE_UNKNOWN) {
+			if (type != POWER_SUPPLY_TYPE_MAINS) {
 				smb23x_masked_write(g_smb23x_chip, CFG_REG_0, USBIN_ICL_MASK, 0x04);
 				smb23x_masked_write(g_smb23x_chip, CFG_REG_2, FASTCHG_CURR_MASK, 0x01);
 			}
@@ -1334,7 +1340,7 @@ void adc_notification_set_cool_current(int level)
 				lbc_set_suspend(0x01);
 			g_smb23x_chip->batt_cool = true;
 			smb23x_enable_volatile_writes(g_smb23x_chip);
-			if (type != POWER_SUPPLY_TYPE_UNKNOWN) {
+			if (type != POWER_SUPPLY_TYPE_MAINS) {
 				smb23x_masked_write(g_smb23x_chip, CFG_REG_0, USBIN_ICL_MASK, 0x04);
 				smb23x_masked_write(g_smb23x_chip, CFG_REG_2, FASTCHG_CURR_MASK, 0x00);
 			}
@@ -1371,7 +1377,7 @@ void adc_notification_set_warm_current(int level)
 			g_smb23x_chip->batt_warm = true;
 			smb23x_enable_volatile_writes(g_smb23x_chip);
 			smb23x_masked_write(g_smb23x_chip, CFG_REG_3, FLOAT_VOLTAGE_MASK, 0x17);
-			if (type != POWER_SUPPLY_TYPE_UNKNOWN) {
+			if (type != POWER_SUPPLY_TYPE_MAINS) {
 				smb23x_masked_write(g_smb23x_chip, CFG_REG_0, USBIN_ICL_MASK, 0x04);
 				smb23x_masked_write(g_smb23x_chip, CFG_REG_2, FASTCHG_CURR_MASK, 0x07);
 			}
@@ -1382,7 +1388,7 @@ void adc_notification_set_warm_current(int level)
 			g_smb23x_chip->batt_warm = true;
 			smb23x_enable_volatile_writes(g_smb23x_chip);
 			smb23x_masked_write(g_smb23x_chip, CFG_REG_3, FLOAT_VOLTAGE_MASK, 0x0F);
-			if (type != POWER_SUPPLY_TYPE_UNKNOWN) {
+			if (type != POWER_SUPPLY_TYPE_MAINS) {
 				smb23x_masked_write(g_smb23x_chip, CFG_REG_0, USBIN_ICL_MASK, 0x04);
 				smb23x_masked_write(g_smb23x_chip, CFG_REG_2, FASTCHG_CURR_MASK, 0);
 			}
@@ -1440,9 +1446,6 @@ static int cold_hard_irq_handler(struct smb23x_chip *chip, u8 rt_sts)
 
 static int hot_soft_irq_handler(struct smb23x_chip *chip, u8 rt_sts)
 {
-	pr_debug("rt_sts = 0x02%x\n", rt_sts);
-	chip->batt_warm = !!rt_sts;
-
 	pr_info("[BAT][CHG] rt_sts = 0x02%x\n", rt_sts);
 
 	smb23x_enable_volatile_writes(chip);
@@ -1452,9 +1455,6 @@ static int hot_soft_irq_handler(struct smb23x_chip *chip, u8 rt_sts)
 
 static int cold_soft_irq_handler(struct smb23x_chip *chip, u8 rt_sts)
 {
-	pr_debug("rt_sts = 0x02%x\n", rt_sts);
-	chip->batt_cool = !!rt_sts;
-
 	pr_info("[BAT][CHG] rt_sts = 0x02%x\n", rt_sts);
 
 	smb23x_enable_volatile_writes(chip);
@@ -1531,7 +1531,7 @@ static int iterm_irq_handler(struct smb23x_chip *chip, u8 rt_sts)
 
 static const char * const usb_type_str[] = {
 	"SDP",
-	"UNKNOWN",
+	"MAINS",
 	"DCP",
 	"CDP",
 };
@@ -1550,7 +1550,7 @@ static int get_usb_supply_type(struct smb23x_chip *chip)
 
 	if (!tmp) {
 		pr_debug("APSD not completed\n");
-		return POWER_SUPPLY_TYPE_UNKNOWN;
+		return POWER_SUPPLY_TYPE_MAINS;
 	}
 
 	tmp = reg & APSD_RESULT_MASK;
@@ -1564,7 +1564,7 @@ static int get_usb_supply_type(struct smb23x_chip *chip)
 		type = POWER_SUPPLY_TYPE_USB;
 		tmp = 0;
 	} else {
-		type = POWER_SUPPLY_TYPE_UNKNOWN;
+		type = POWER_SUPPLY_TYPE_MAINS;
 		tmp = 1;
 	}
 
@@ -1588,7 +1588,7 @@ static int handle_usb_insertion(struct smb23x_chip *chip)
 static int handle_usb_removal(struct smb23x_chip *chip)
 {
 	power_supply_set_supply_type(chip->usb_psy,
-			POWER_SUPPLY_TYPE_UNKNOWN);
+			POWER_SUPPLY_TYPE_MAINS);
 	power_supply_set_present(chip->usb_psy, chip->usb_present);
 	power_supply_set_online(chip->usb_psy, false);
 
@@ -1713,9 +1713,13 @@ static void reconfig_upon_unplug(struct smb23x_chip *chip)
 			mutex_lock(&chip->usb_suspend_lock);
 			reason = chip->usb_suspended_status;
 			mutex_unlock(&chip->usb_suspend_lock);
-			rc = smb23x_suspend_usb(chip, reason, !!reason ? true : false);
-			if (rc < 0)
-				pr_err("%suspend USB failed\n", !!reason ? "S" : "Un-s");
+			if (!(chip->workaround_flags & WRKRND_USB_SUSPEND)) {
+				rc = smb23x_suspend_usb(chip, reason,
+						!!reason ? true : false);
+				if (rc < 0)
+					pr_err("%suspend USB failed\n",
+						!!reason ? "S" : "Un-s");
+			}
 		}
 	}
 }
@@ -1727,6 +1731,14 @@ static int usbin_uv_irq_handler(struct smb23x_chip *chip, u8 rt_sts)
 	if (chip->usb_present == 0 && usb_present == 1) {
 		gpio_set_value(GPIO_num17,0);
 		pr_info("[BAT][CHG] gpio_17 set to 0\n");
+
+		smb23x_enable_volatile_writes(chip);
+		// Set input current limit value follow register setting
+		smb23x_masked_write(chip, CMD_REG_1, USBAC_MODE_BIT, 0x01);
+		// Set system voltage to VBATT tracking(VBATT + 250mV)
+		smb23x_masked_write(chip, CFG_REG_4, SYSTEM_VOLTAGE_MASK, 0x2);
+		// Set system voltage threshold for initiating charge current deduction
+		smb23x_masked_write(chip, CFG_REG_6, CHG_CHARGE_SYS_VOLT_MASK, 0x20);
 	} else if (chip->usb_present == 1 && usb_present == 0) {
 		gpio_set_value(GPIO_num17,0);
 		chip->batt_full = false;
@@ -1891,10 +1903,6 @@ static int smb23x_determine_initial_status(struct smb23x_chip *chip)
 		chip->batt_hot = true;
 	else if (reg & COLD_HARD_BIT)
 		chip->batt_cold = true;
-	else if (reg & HOT_SOFT_BIT)
-		chip->batt_warm = true;
-	else if (reg & COLD_SOFT_BIT)
-		chip->batt_cool = true;
 
 	chip->batt_present = true;
 	rc = smb23x_read(chip, IRQ_B_STATUS_REG, &reg);
@@ -2736,6 +2744,9 @@ static int smb23x_probe(struct i2c_client *client,
 
 	smb23x_enable_volatile_writes(chip);
 
+	/* enable the USB_SUSPEND always */
+	chip->workaround_flags |= WRKRND_USB_SUSPEND;
+
 	rc = smb23x_parse_dt(chip);
 	if (rc < 0) {
 		pr_err("Parse DT nodes failed!\n");
@@ -2880,7 +2891,8 @@ static int smb23x_suspend(struct device *dev)
 		pr_err("Save irq config failed, rc=%d\n", rc);
 
 	/* enable only important IRQs */
-	rc = smb23x_write(chip, IRQ_CFG_REG_9, BATT_MISSING_IRQ_EN_BIT);
+	rc = smb23x_write(chip, IRQ_CFG_REG_9,
+			BATT_MISSING_IRQ_EN_BIT | INOK_IRQ_EN_BIT);
 	if (rc < 0)
 		pr_err("Set irq_cfg failed, rc = %d\n", rc);
 

@@ -846,6 +846,18 @@ VosWDThread
     clear_bit(WD_POST_EVENT, &pWdContext->wdEventFlag);
     while(1)
     {
+
+      /* Post Msg to detect thread stuck. */
+      if (test_and_clear_bit(WD_WLAN_DETECT_THREAD_STUCK,
+                                          &pWdContext->wdEventFlag))
+      {
+        vos_wd_detect_thread_stuck();
+        /*
+         * Process here and return without processing any SSR
+         * related logic.
+         */
+        break;
+      }
       /* Check for any Active Entry Points
        * If active, delay SSR until no entry point is active or
        * delay until count is decremented to ZERO
@@ -936,12 +948,6 @@ VosWDThread
         atomic_set(&pHddCtx->isRestartInProgress, 0);
         pWdContext->resetInProgress = false;
         complete(&pHddCtx->ssr_comp_var);
-      }
-      /* Post Msg to detect thread stuck */
-      else if(test_and_clear_bit(WD_WLAN_DETECT_THREAD_STUCK,
-                                          &pWdContext->wdEventFlag))
-      {
-        vos_wd_detect_thread_stuck();
       }
       else
       {
@@ -2133,6 +2139,14 @@ void vos_ssr_unprotect(const char *caller_func)
  */
 bool vos_is_wd_thread(int threadId)
 {
+   /* Make sure that Vos Watchdog context has been initialized */
+   if (gpVosWatchdogContext == NULL)
+   {
+      VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO,
+          "%s: gpVosWatchdogContext == NULL", __func__);
+      return false;
+   }
+
    return ((gpVosWatchdogContext->WdThread) &&
        (threadId == gpVosWatchdogContext->WdThread->pid));
 }

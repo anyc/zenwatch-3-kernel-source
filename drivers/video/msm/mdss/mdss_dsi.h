@@ -440,6 +440,7 @@ struct mdss_dsi_ctrl_pdata {
 	bool dsi_irq_line;
 	bool dcs_cmd_insert;
 	atomic_t te_irq_ready;
+	int idle;
 
 	bool cmd_sync_wait_broadcast;
 	bool cmd_sync_wait_trigger;
@@ -463,6 +464,8 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_panel_cmds off_cmds;
 	struct dsi_panel_cmds sleep_cmds;
 	struct dsi_panel_cmds status_cmds;
+	struct dsi_panel_cmds idle_on_cmds; /* for lp mode */
+	struct dsi_panel_cmds idle_off_cmds;
 	u32 *status_valid_params;
 	u32 *status_cmds_rlen;
 	u32 *status_value;
@@ -482,6 +485,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct completion video_comp;
 	struct completion dynamic_comp;
 	struct completion bta_comp;
+	struct completion te_irq_comp;
 	spinlock_t irq_lock;
 	spinlock_t mdp_lock;
 	int mdp_busy;
@@ -545,9 +549,6 @@ struct mdss_dsi_ctrl_pdata {
 	/* ASUS extend properties for panel low power mode */
 	struct mutex blcmd_mutex;
 	struct mutex ambientcmd_mutex;
-
-	struct dsi_panel_cmds idle_on_cmds;
-	struct dsi_panel_cmds idle_off_cmds;
 };
 
 struct dsi_status_data {
@@ -662,6 +663,7 @@ void mdss_dsi_dsc_config(struct mdss_dsi_ctrl_pdata *ctrl,
 	struct dsc_desc *dsc);
 void mdss_dsi_dfps_config_8996(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_set_burst_mode(struct mdss_dsi_ctrl_pdata *ctrl);
+int mdss_dsi_panel_power_ctrl(struct mdss_panel_data *pdata, int power_state);
 
 static inline const char *__mdss_dsi_pm_name(enum dsi_pm_type module)
 {
@@ -864,6 +866,11 @@ static inline bool mdss_dsi_is_panel_on_interactive(
 static inline bool mdss_dsi_is_panel_on_lp(struct mdss_panel_data *pdata)
 {
 	return mdss_panel_is_power_on_lp(pdata->panel_info.panel_power_state);
+}
+
+static inline bool mdss_dsi_is_panel_on_ulp(struct mdss_panel_data *pdata)
+{
+	return mdss_panel_is_power_on_ulp(pdata->panel_info.panel_power_state);
 }
 
 static inline bool mdss_dsi_ulps_feature_enabled(

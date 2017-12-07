@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -212,7 +212,9 @@ struct buffer_info *get_registered_buf(struct msm_vidc_inst *inst,
 	*plane = 0;
 	list_for_each_entry(temp, &inst->registeredbufs.list, list) {
 		for (i = 0; i < min(temp->num_planes, VIDEO_MAX_PLANES); i++) {
-			bool fd_matches = fd == temp->fd[i];
+			bool ion_hndl_matches = temp->handle[i] ?
+				msm_smem_compare_buffers(inst->mem_client, fd,
+				temp->handle[i]->smem_priv) : false;
 			bool device_addr_matches = device_addr ==
 						temp->device_addr[i];
 			bool contains_within = CONTAINS(temp->buff_off[i],
@@ -222,7 +224,7 @@ struct buffer_info *get_registered_buf(struct msm_vidc_inst *inst,
 					temp->buff_off[i], temp->size[i]);
 
 			if (!temp->inactive &&
-				(fd_matches || device_addr_matches) &&
+				(ion_hndl_matches || device_addr_matches) &&
 				(contains_within || overlaps)) {
 				dprintk(VIDC_DBG,
 						"This memory region is already mapped\n");
@@ -239,8 +241,7 @@ err_invalid_input:
 	return ret;
 }
 
-static struct msm_smem *get_same_fd_buffer(struct msm_vidc_list *buf_list,
-							int fd)
+static struct msm_smem *get_same_fd_buffer(struct msm_vidc_inst *inst, int fd)
 {
 	struct buffer_info *temp;
 	struct msm_smem *same_fd_handle = NULL;
@@ -250,16 +251,18 @@ static struct msm_smem *get_same_fd_buffer(struct msm_vidc_list *buf_list,
 	if (!fd)
 		return NULL;
 
-	if (!buf_list || fd < 0) {
-		dprintk(VIDC_ERR, "Invalid input\n");
+	if (!inst || fd < 0) {
+		dprintk(VIDC_ERR, "%s: Invalid input\n", __func__);
 		goto err_invalid_input;
 	}
 
-	mutex_lock(&buf_list->lock);
-	list_for_each_entry(temp, &buf_list->list, list) {
+	mutex_lock(&inst->registeredbufs.lock);
+	list_for_each_entry(temp, &inst->registeredbufs.list, list) {
 		for (i = 0; i < min(temp->num_planes, VIDEO_MAX_PLANES); i++) {
-			if (temp->fd[i] == fd &&
-				temp->handle[i] && temp->mapped[i])  {
+			bool ion_hndl_matches = temp->handle[i] ?
+				msm_smem_compare_buffers(inst->mem_client, fd,
+				temp->handle[i]->smem_priv) : false;
+			if (ion_hndl_matches && temp->mapped[i])  {
 				temp->same_fd_ref[i]++;
 				dprintk(VIDC_INFO,
 				"Found same fd buffer\n");
@@ -270,7 +273,7 @@ static struct msm_smem *get_same_fd_buffer(struct msm_vidc_list *buf_list,
 		if (same_fd_handle)
 			break;
 	}
-	mutex_unlock(&buf_list->lock);
+	mutex_unlock(&inst->registeredbufs.lock);
 
 err_invalid_input:
 	return same_fd_handle;
@@ -285,7 +288,7 @@ struct buffer_info *device_to_uvaddr(struct msm_vidc_list *buf_list,
 
 	if (!buf_list || !device_addr) {
 		dprintk(VIDC_ERR,
-			"Invalid input- device_addr: %pa buf_list: %p\n",
+			"Invalid input- device_addr: %pa buf_list: %pK\n",
 			&device_addr, buf_list);
 		goto err_invalid_input;
 	}
@@ -384,6 +387,13 @@ static inline bool is_dynamic_output_buffer_mode(struct v4l2_buffer *b,
 		inst->buffer_mode_set[CAPTURE_PORT] == HAL_BUFFER_MODE_DYNAMIC;
 }
 
+
+static inline bool is_encoder_input_buffer(struct v4l2_buffer *b,
+				struct msm_vidc_inst *inst)
+{
+	return b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
+			inst->session_type == MSM_VIDC_ENCODER;
+}
 
 static inline void save_v4l2_buffer(struct v4l2_buffer *b,
 						struct buffer_info *binfo)
@@ -484,8 +494,7 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 		}
 
 		same_fd_handle = get_same_fd_buffer(
-				&inst->registeredbufs,
-				b->m.planes[i].reserved[0]);
+				inst, b->m.planes[i].reserved[0]);
 
 		populate_buf_info(binfo, b, i);
 		if (same_fd_handle) {
@@ -515,7 +524,7 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 				goto exit;
 		}
 		dprintk(VIDC_DBG,
-			"%s: [MAP] binfo = %p, handle[%d] = %p, device_addr = %pa, fd = %d, offset = %d, mapped = %d\n",
+			"%s: [MAP] binfo = %pK, handle[%d] = %pK, device_addr = %pa, fd = %d, offset = %d, mapped = %d\n",
 			__func__, binfo, i, binfo->handle[i],
 			&binfo->device_addr[i], binfo->fd[i],
 			binfo->buff_off[i], binfo->mapped[i]);
@@ -568,7 +577,7 @@ int unmap_and_deregister_buf(struct msm_vidc_inst *inst,
 
 	for (i = 0; i < temp->num_planes; i++) {
 		dprintk(VIDC_DBG,
-			"%s: [UNMAP] binfo = %p, handle[%d] = %p, device_addr = %pa, fd = %d, offset = %d, mapped = %d\n",
+			"%s: [UNMAP] binfo = %pK, handle[%d] = %pK, device_addr = %pa, fd = %d, offset = %d, mapped = %d\n",
 			__func__, temp, i, temp->handle[i],
 			&temp->device_addr[i], temp->fd[i],
 			temp->buff_off[i], temp->mapped[i]);
@@ -784,7 +793,7 @@ free_and_unmap:
 			for (i = 0; i < bi->num_planes; i++) {
 				if (bi->handle[i] && bi->mapped[i]) {
 					dprintk(VIDC_DBG,
-						"%s: [UNMAP] binfo = %p, handle[%d] = %p, device_addr = %pa, fd = %d, offset = %d, mapped = %d\n",
+						"%s: [UNMAP] binfo = %pK, handle[%d] = %pK, device_addr = %pa, fd = %d, offset = %d, mapped = %d\n",
 						__func__, bi, i, bi->handle[i],
 						&bi->device_addr[i], bi->fd[i],
 						bi->buff_off[i], bi->mapped[i]);
@@ -935,8 +944,8 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 	if (rc)
 		return rc;
 
-
-	if (is_dynamic_output_buffer_mode(b, inst)) {
+	if (is_dynamic_output_buffer_mode(b, inst) ||
+		is_encoder_input_buffer(b, inst)) {
 		buffer_info->dequeued = true;
 
 		dprintk(VIDC_DBG, "[DEQUEUED]: fd[0] = %d\n",
@@ -1286,7 +1295,11 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 		debugfs_remove_recursive(inst->debugfs_root);
 
 		mutex_lock(&inst->pending_getpropq.lock);
-		WARN_ON(!list_empty(&inst->pending_getpropq.list));
+		if (!list_empty(&inst->pending_getpropq.list)) {
+			dprintk(VIDC_ERR,
+				"pending_getpropq not empty\n");
+			WARN_ON(VIDC_DBG_WARN_ENABLE);
+		}
 		mutex_unlock(&inst->pending_getpropq.lock);
 	}
 }

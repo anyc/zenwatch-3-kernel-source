@@ -442,12 +442,16 @@ static int mdp3_clk_update(u32 clk_idx, u32 enable)
 			mdp3_res->clock_ref_count[clk_idx]--;
 			return ret;
 		}
+		if (clk_idx == MDP3_CLK_MDP_CORE)
+			MDSS_XLOG(enable);
 		ret = clk_enable(clk);
 		if (ret)
 			pr_err("%s: clock enable failed %d\n", __func__,
 					clk_idx);
 	} else if (count == 0) {
 		pr_debug("clk=%d disable\n", clk_idx);
+		if (clk_idx == MDP3_CLK_MDP_CORE)
+			MDSS_XLOG(enable);
 		clk_disable(clk);
 		clk_unprepare(clk);
 		ret = 0;
@@ -1069,6 +1073,17 @@ u64 mdp3_get_panic_lut_cfg(u32 panel_width)
 	panic_config = panic_config << 32;
 	panic_config |= panic_mask;
 	return panic_config;
+}
+
+int mdp3_enable_panic_ctrl(void)
+{
+	int rc = 0;
+
+	if (MDP3_REG_READ(MDP3_PANIC_ROBUST_CTRL) == 0) {
+		pr_err("%s: Enable Panic Control\n", __func__);
+		MDP3_REG_WRITE(MDP3_PANIC_ROBUST_CTRL, BIT(0));
+	}
+	return rc;
 }
 
 int mdp3_qos_remapper_setup(struct mdss_panel_data *panel)
@@ -2194,11 +2209,11 @@ static int mdp3_is_display_on(struct mdss_panel_data *pdata)
 	}
 
 	mdp3_res->splash_mem_addr = MDP3_REG_READ(MDP3_REG_DMA_P_IBUF_ADDR);
-
-	if (pdata->panel_info.type == MIPI_CMD_PANEL)
-	rc = mdp3_clk_enable(0, 0);
-	if (rc)
-		pr_err("fail to turn off MDP core clks\n");
+	
+	if ((pdata->panel_info.type == MIPI_CMD_PANEL) ||(!rc)) {
+		if (mdp3_clk_enable(0, 0))
+			pr_err("fail to turn off MDP core clks\n");
+	}
 	return rc;
 }
 
@@ -2620,15 +2635,18 @@ int mdp3_footswitch_ctrl(int enable)
 	int rc = 0;
 	int active_cnt = 0;
 
+	mutex_lock(&mdp3_res->fs_idle_pc_lock);
+	MDSS_XLOG(enable);
 	if (!mdp3_res->fs_ena && enable) {
 		rc = regulator_enable(mdp3_res->fs);
 		if (rc) {
 			pr_err("mdp footswitch ctrl enable failed\n");
+			mutex_unlock(&mdp3_res->fs_idle_pc_lock);
 			return -EINVAL;
 		}
-			pr_debug("mdp footswitch ctrl enable success\n");
+		pr_debug("mdp footswitch ctrl enable success\n");
 		mdp3_enable_regulator(true);
-			mdp3_res->fs_ena = true;
+		mdp3_res->fs_ena = true;
 	} else if (!enable && mdp3_res->fs_ena) {
 		active_cnt = atomic_read(&mdp3_res->active_intf_cnt);
 		if (active_cnt != 0) {
@@ -2644,13 +2662,16 @@ int mdp3_footswitch_ctrl(int enable)
 		rc = regulator_disable(mdp3_res->fs);
 		if (rc) {
 			pr_err("mdp footswitch ctrl disable failed\n");
+			mutex_unlock(&mdp3_res->fs_idle_pc_lock);
 			return -EINVAL;
 		}
 			mdp3_res->fs_ena = false;
+		pr_debug("mdp3 footswitch ctrl disable configured\n");
 	} else {
 		pr_debug("mdp3 footswitch ctrl already configured\n");
 	}
 
+	mutex_unlock(&mdp3_res->fs_idle_pc_lock);
 	return rc;
 }
 
@@ -2673,8 +2694,7 @@ int mdp3_panel_get_intf_status(u32 disp_num, u32 intf_type)
 
 	/* For Video mode panel do not disable clock */
 	if (!(status == 0x180000)) {
-		rc = mdp3_clk_enable(0, 0);
-		if (rc)
+		if (mdp3_clk_enable(0, 0))
 			pr_err("fail to turn off MDP core clks\n");
 	}
 	return rc;
@@ -2715,6 +2735,7 @@ static int mdp3_probe(struct platform_device *pdev)
 	pdev->id = 0;
 	mdp3_res->pdev = pdev;
 	mutex_init(&mdp3_res->res_mutex);
+	mutex_init(&mdp3_res->fs_idle_pc_lock);
 	spin_lock_init(&mdp3_res->irq_lock);
 	platform_set_drvdata(pdev, mdp3_res);
 	atomic_set(&mdp3_res->active_intf_cnt, 0);
@@ -2852,7 +2873,7 @@ static  int mdp3_resume_sub(void)
 static int mdp3_pm_suspend(struct device *dev)
 {
 	dev_dbg(dev, "Display pm suspend\n");
-
+	MDSS_XLOG(XLOG_FUNC_ENTRY);
 	return mdp3_suspend_sub();
 }
 
@@ -2869,6 +2890,7 @@ static int mdp3_pm_resume(struct device *dev)
 	pm_runtime_set_suspended(dev);
 	pm_runtime_enable(dev);
 
+	MDSS_XLOG(XLOG_FUNC_ENTRY);
 	return mdp3_resume_sub();
 }
 #endif
@@ -2878,6 +2900,7 @@ static int mdp3_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	pr_debug("Display suspend\n");
 
+	MDSS_XLOG(XLOG_FUNC_ENTRY);
 	return mdp3_suspend_sub();
 }
 
@@ -2885,6 +2908,7 @@ static int mdp3_resume(struct platform_device *pdev)
 {
 	pr_debug("Display resume\n");
 
+	MDSS_XLOG(XLOG_FUNC_ENTRY);
 	return mdp3_resume_sub();
 }
 #else
@@ -2905,6 +2929,7 @@ static int mdp3_runtime_resume(struct device *dev)
 	if (!mdp3_res->idle_pc)
 		device_for_each_child(dev, &device_on, mdss_fb_suspres_panel);
 
+	MDSS_XLOG(XLOG_FUNC_ENTRY);
 	mdp3_footswitch_ctrl(1);
 
 	return 0;
@@ -2929,6 +2954,7 @@ static int mdp3_runtime_suspend(struct device *dev)
 		return -EBUSY;
 	}
 
+	MDSS_XLOG(XLOG_FUNC_ENTRY);
 	mdp3_footswitch_ctrl(0);
 
 	/* do not suspend panels when going in to idle power collapse */

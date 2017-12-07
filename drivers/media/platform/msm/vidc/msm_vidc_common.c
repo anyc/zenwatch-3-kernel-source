@@ -303,7 +303,7 @@ int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 	if (is_non_realtime_session(inst) &&
 		(quirks & LOAD_CALC_IGNORE_NON_REALTIME_LOAD)) {
 		if (!inst->prop.fps) {
-			dprintk(VIDC_INFO, "instance:%p fps = 0\n", inst);
+			dprintk(VIDC_INFO, "instance:%pK fps = 0\n", inst);
 			load = 0;
 		} else {
 			load = msm_comm_get_mbs_per_sec(inst) / inst->prop.fps;
@@ -1083,7 +1083,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 		struct buffer_info *binfo = NULL, *temp = NULL;
 		u32 *ptr = NULL;
 
-		dprintk(VIDC_DBG, "%s - inst: %p buffer: %pa extra: %pa\n",
+		dprintk(VIDC_DBG, "%s - inst: %pK buffer: %pa extra: %pa\n",
 				__func__, inst, &event_notify->packet_buffer,
 				&event_notify->extra_data_buffer);
 
@@ -1479,11 +1479,11 @@ static void handle_session_error(enum hal_command_response cmd, void *data)
 	}
 
 	hdev = inst->core->device;
-	dprintk(VIDC_WARN, "Session error received for session %p\n", inst);
+	dprintk(VIDC_WARN, "Session error received for session %pK\n", inst);
 	change_inst_state(inst, MSM_VIDC_CORE_INVALID);
 
 	if (response->status == VIDC_ERR_MAX_CLIENTS) {
-		dprintk(VIDC_WARN, "Too many clients, rejecting %p", inst);
+		dprintk(VIDC_WARN, "Too many clients, rejecting %pK", inst);
 		event = V4L2_EVENT_MSM_VIDC_MAX_CLIENTS;
 
 		/*
@@ -1495,10 +1495,10 @@ static void handle_session_error(enum hal_command_response cmd, void *data)
 
 		msm_comm_session_clean(inst);
 	} else if (response->status == VIDC_ERR_NOT_SUPPORTED) {
-		dprintk(VIDC_WARN, "Unsupported bitstream in %p", inst);
+		dprintk(VIDC_WARN, "Unsupported bitstream in %pK", inst);
 		event = V4L2_EVENT_MSM_VIDC_HW_UNSUPPORTED;
 	} else {
-		dprintk(VIDC_WARN, "Unknown session error (%d) for %p\n",
+		dprintk(VIDC_WARN, "Unknown session error (%d) for %pK\n",
 				response->status, inst);
 		event = V4L2_EVENT_MSM_VIDC_SYS_ERROR;
 	}
@@ -1584,12 +1584,12 @@ void msm_comm_session_clean(struct msm_vidc_inst *inst)
 	hdev = inst->core->device;
 	mutex_lock(&inst->lock);
 	if (hdev && inst->session) {
-		dprintk(VIDC_DBG, "cleaning up instance: %p\n", inst);
+		dprintk(VIDC_DBG, "cleaning up instance: %pK\n", inst);
 		rc = call_hfi_op(hdev, session_clean,
 				(void *)inst->session);
 		if (rc) {
 			dprintk(VIDC_ERR,
-				"Session clean failed :%p\n", inst);
+				"Session clean failed :%pK\n", inst);
 		}
 		inst->session = NULL;
 	}
@@ -1650,6 +1650,36 @@ static struct vb2_buffer *get_vb_from_device_addr(struct buf_queue *bufq,
 	return vb;
 }
 
+
+static void handle_dynamic_input_buffer(struct msm_vidc_inst *inst,
+		ion_phys_addr_t device_addr)
+{
+	struct buffer_info *binfo = NULL, *temp = NULL;
+
+	if (inst->session_type == MSM_VIDC_ENCODER) {
+		binfo = device_to_uvaddr(&inst->registeredbufs, device_addr);
+		if (!binfo) {
+			dprintk(VIDC_ERR,
+				"%s buffer not found in registered list\n",
+				__func__);
+			return;
+		}
+		dprintk(VIDC_DBG,
+			"EBD fd[0] = %d -> EBD_ref_released, addr: %pa\n",
+			binfo->fd[0], &device_addr);
+
+		mutex_lock(&inst->registeredbufs.lock);
+		list_for_each_entry(temp, &inst->registeredbufs.list,
+				list) {
+			if (temp == binfo) {
+				binfo->pending_deletion = true;
+				break;
+			}
+		}
+		mutex_unlock(&inst->registeredbufs.lock);
+	}
+}
+
 static void handle_ebd(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_data_done *response = data;
@@ -1668,6 +1698,8 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
 		return;
 	}
+
+	handle_dynamic_input_buffer(inst, response->input_done.packet_buffer);
 
 	vb = get_vb_from_device_addr(&inst->bufq[OUTPUT_PORT],
 			response->input_done.packet_buffer);
@@ -3221,16 +3253,16 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 	struct msm_vidc_core *core;
 	if (!inst) {
 		dprintk(VIDC_ERR,
-				"Invalid instance pointer = %p\n", inst);
+				"Invalid instance pointer = %pK\n", inst);
 		return -EINVAL;
 	}
 	dprintk(VIDC_DBG,
-			"Trying to move inst: %p from: %#x to %#x\n",
+			"Trying to move inst: %pK from: %#x to %#x\n",
 			inst, inst->state, state);
 	core = inst->core;
 	if (!core) {
 		dprintk(VIDC_ERR,
-				"Invalid core pointer = %p\n", inst);
+				"Invalid core pointer = %pK\n", inst);
 		return -EINVAL;
 	}
 	mutex_lock(&inst->sync_lock);
@@ -3636,7 +3668,7 @@ int msm_comm_qbuf(struct msm_vidc_inst *inst, struct vb2_buffer *vb)
 	defer = defer ?: batch_mode && (!output_count || !capture_count);
 
 	if (defer) {
-		dprintk(VIDC_DBG, "Deferring queue of %p\n", vb);
+		dprintk(VIDC_DBG, "Deferring queue of %pK\n", vb);
 		return 0;
 	}
 
@@ -3844,7 +3876,7 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 		 */
 
 		dprintk(VIDC_ERR,
-			"In Wrong state to call Buf Req: Inst %p or Core %p\n",
+			"In Wrong state to call Buf Req: Inst %pK or Core %pK\n",
 				inst, inst->core);
 		rc = -EAGAIN;
 		mutex_unlock(&inst->sync_lock);
@@ -3919,7 +3951,7 @@ int msm_comm_release_output_buffers(struct msm_vidc_inst *inst)
 	struct hfi_device *hdev;
 	if (!inst) {
 		dprintk(VIDC_ERR,
-				"Invalid instance pointer = %p\n", inst);
+				"Invalid instance pointer = %pK\n", inst);
 		return -EINVAL;
 	}
 	mutex_lock(&inst->outputbufs.lock);
@@ -3934,12 +3966,12 @@ int msm_comm_release_output_buffers(struct msm_vidc_inst *inst)
 	core = inst->core;
 	if (!core) {
 		dprintk(VIDC_ERR,
-				"Invalid core pointer = %p\n", core);
+				"Invalid core pointer = %pK\n", core);
 		return -EINVAL;
 	}
 	hdev = core->device;
 	if (!hdev) {
-		dprintk(VIDC_ERR, "Invalid device pointer = %p\n", hdev);
+		dprintk(VIDC_ERR, "Invalid device pointer = %pK\n", hdev);
 		return -EINVAL;
 	}
 	mutex_lock(&inst->outputbufs.lock);
@@ -4395,7 +4427,7 @@ void msm_comm_flush_pending_dynamic_buffers(struct msm_vidc_inst *inst)
 	list_for_each_entry(binfo, &inst->registeredbufs.list, list) {
 		if (binfo->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 			dprintk(VIDC_DBG,
-				"%s: binfo = %p device_addr = %pa\n",
+				"%s: binfo = %pK device_addr = %pa\n",
 				__func__, binfo, &binfo->device_addr[0]);
 			buf_ref_put(inst, binfo);
 		}
@@ -5055,7 +5087,7 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 		fps = fps - 1;
 
 	if (inst->prop.fps != fps) {
-		dprintk(VIDC_PROF, "reported fps changed for %p: %d->%d\n",
+		dprintk(VIDC_PROF, "reported fps changed for %pK: %d->%d\n",
 				inst, inst->prop.fps, fps);
 		inst->prop.fps = fps;
 		frame_rate.frame_rate = inst->prop.fps * BIT(16);

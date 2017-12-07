@@ -263,6 +263,16 @@ config MSM_CACHE_M4M_ERP64_PANIC_ON_UE
          Say 'Y' here to cause kernel panic when uncorrectable cache/M4M errors
          are detected.
 
+config MSM_L2_IA_DEBUG
+       bool "Enable MSM L2 Indirect Access Debug"
+       depends on DEBUG_FS
+       default n
+       help
+         This option enables L2 indirect access debug
+         capability. It exposes L2 indirect access
+         debugfs interface to get/set data, address,
+         and target cpus.
+
 config MSM_RPM_SMD
 	bool "RPM driver using SMD protocol"
 	help
@@ -677,14 +687,6 @@ config ICNSS
 	  subsystem. This module is responsible for communicating WLAN on/off
 	  control messages to FW over QMI channel. It is also responsible for
 	  handling WLAN PD restart notifications.
-
-config MSM_CORE_CTL_HELPER
-	tristate "Core control helper functions for dynamically hotplug CPUs"
-	help
-	  Provide helper functions for core control driver. Core control
-	  driver dynamically hotplugs CPUs from kernel based on current
-	  system load and state. It also supports limiting min and
-	  max online CPUs from userspace.
 
 config MSM_BAM_DMUX
 	bool "BAM Data Mux Driver"

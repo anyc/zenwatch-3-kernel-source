@@ -173,7 +173,9 @@ static struct srcu_struct pmus_srcu;
  *   2 - disallow kernel profiling for unpriv
  *   3 - disallow all unpriv perf event use
  */
-#ifdef CONFIG_SECURITY_PERF_EVENTS_RESTRICT
+#ifdef CONFIG_PERF_EVENTS_USERMODE
+int sysctl_perf_event_paranoid __read_mostly = -1;
+#elif defined CONFIG_SECURITY_PERF_EVENTS_RESTRICT
 int sysctl_perf_event_paranoid __read_mostly = 3;
 #else
 int sysctl_perf_event_paranoid __read_mostly = 1;
@@ -4077,6 +4079,19 @@ static long _perf_ioctl(struct perf_event *event, unsigned int cmd, unsigned lon
 	return 0;
 }
 
+static long perf_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	struct perf_event *event = file->private_data;
+	struct perf_event_context *ctx;
+	long ret;
+
+	ctx = perf_event_ctx_lock(event);
+	ret = _perf_ioctl(event, cmd, arg);
+	perf_event_ctx_unlock(event, ctx);
+
+	return ret;
+}
+
 #ifdef CONFIG_COMPAT
 static long perf_compat_ioctl(struct file *file, unsigned int cmd,
 				unsigned long arg)
@@ -4096,19 +4111,6 @@ static long perf_compat_ioctl(struct file *file, unsigned int cmd,
 #else
 # define perf_compat_ioctl NULL
 #endif
-
-static long perf_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
-{
-	struct perf_event *event = file->private_data;
-	struct perf_event_context *ctx;
-	long ret;
-
-	ctx = perf_event_ctx_lock(event);
-	ret = _perf_ioctl(event, cmd, arg);
-	perf_event_ctx_unlock(event, ctx);
-
-	return ret;
-}
 
 int perf_event_task_enable(void)
 {
@@ -6988,7 +6990,6 @@ skip_type:
 		__perf_event_init_context(&cpuctx->ctx);
 		lockdep_set_class(&cpuctx->ctx.mutex, &cpuctx_mutex);
 		lockdep_set_class(&cpuctx->ctx.lock, &cpuctx_lock);
-		cpuctx->ctx.type = cpu_context;
 		cpuctx->ctx.pmu = pmu;
 
 		__perf_cpu_hrtimer_init(cpuctx, cpu);
@@ -7656,7 +7657,19 @@ SYSCALL_DEFINE5(perf_event_open,
 		 * task or CPU context:
 		 */
 		if (move_group) {
-			if (group_leader->ctx->type != ctx->type)
+			/*
+			 * Make sure we're both on the same task, or both
+			 * per-cpu events.
+			 */
+			if (group_leader->ctx->task != ctx->task)
+				goto err_context;
+
+			/*
+			 * Make sure we're both events for the same CPU;
+			 * grouping events for different CPUs is broken; since
+			 * you can never concurrently schedule them anyhow.
+			 */
+			if (group_leader->cpu != event->cpu)
 				goto err_context;
 		} else {
 			if (group_leader->ctx != ctx)
@@ -7691,7 +7704,6 @@ SYSCALL_DEFINE5(perf_event_open,
 		 * of swizzling perf_event::ctx.
 		 */
 		mutex_lock_double(&gctx->mutex, &ctx->mutex);
-
 
 		perf_remove_from_context(group_leader, false);
 
@@ -7737,7 +7749,6 @@ SYSCALL_DEFINE5(perf_event_open,
 		put_ctx(gctx);
 	}
 	mutex_unlock(&ctx->mutex);
-
 	if (group_leader)
 		mutex_unlock(&group_leader->group_leader_mutex);
 

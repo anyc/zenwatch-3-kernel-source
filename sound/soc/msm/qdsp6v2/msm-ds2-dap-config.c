@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
 * only version 2 as published by the Free Software Foundation.
@@ -1103,7 +1103,7 @@ static int msm_ds2_dap_send_end_point(int dev_map_idx, int endp_idx)
 	ds2_ap_params_obj = &ds2_dap_params[cache_device];
 	pr_debug("%s: cache dev %d, dev_map_idx %d\n", __func__,
 		 cache_device, dev_map_idx);
-	pr_debug("%s: endp - %pk %pk\n",  __func__,
+	pr_debug("%s: endp - %pK %pK\n",  __func__,
 		 &ds2_dap_params[cache_device], ds2_ap_params_obj);
 
 	params_value = kzalloc(params_length, GFP_KERNEL);
@@ -1189,7 +1189,7 @@ static int msm_ds2_dap_send_cached_params(int dev_map_idx,
 	}
 
 	ds2_ap_params_obj = &ds2_dap_params[cache_device];
-	pr_debug("%s: cached param - %pk %pk, cache_device %d\n", __func__,
+	pr_debug("%s: cached param - %pK %pK, cache_device %d\n", __func__,
 		 &ds2_dap_params[cache_device], ds2_ap_params_obj,
 		 cache_device);
 	params_value = kzalloc(params_length, GFP_KERNEL);
@@ -1523,14 +1523,6 @@ static int msm_ds2_dap_get_param(u32 cmd, void *arg)
 	}
 
 	/* Return if invalid length */
-	if (dolby_data->length >
-	       (DOLBY_MAX_LENGTH_INDIVIDUAL_PARAM - DOLBY_PARAM_PAYLOAD_SIZE)) {
-		pr_err("Invalid length %d", dolby_data->length);
-		rc = -EINVAL;
-		goto end;
-	}
-
-	/* Return if invalid length */
 	if ((dolby_data->length >
 	      (DOLBY_MAX_LENGTH_INDIVIDUAL_PARAM - DOLBY_PARAM_PAYLOAD_SIZE)) ||
 	      (dolby_data->length <= 0)) {
@@ -1650,6 +1642,7 @@ static int msm_ds2_dap_param_visualizer_control_get(u32 cmd, void *arg)
 		ret = 0;
 		dolby_data->length = 0;
 		pr_err("%s Incorrect VCNB length", __func__);
+		return -EINVAL;
 	}
 
 	params_length = (2*length + DOLBY_VIS_PARAM_HEADER_SIZE) *

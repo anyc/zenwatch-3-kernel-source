@@ -2952,7 +2952,25 @@ eHalStatus sme_ScanRequest(tHalHandle hHal, tANI_U8 sessionId, tCsrScanRequest *
     tpAniSirGlobal pMac = PMAC_STRUCT( hHal );
     MTRACE(vos_trace(VOS_MODULE_ID_SME,
            TRACE_CODE_SME_RX_HDD_MSG_SCAN_REQ, sessionId, pscanReq->scanType));
-    smsLog(pMac, LOG2, FL("enter"));
+
+    smsLog(pMac, LOG1,
+           FL("isCoexScoIndSet %d disable_scan_during_sco %d is_disconnected %d"),
+           pMac->isCoexScoIndSet,
+           pMac->scan.disable_scan_during_sco,
+           csrIsConnStateDisconnected(pMac, sessionId));
+
+    if (pMac->isCoexScoIndSet && pMac->scan.disable_scan_during_sco &&
+        csrIsConnStateDisconnected(pMac, sessionId)) {
+        csrScanFlushResult(pMac);
+        pMac->scan.disable_scan_during_sco_timer_info.callback = callback;
+        pMac->scan.disable_scan_during_sco_timer_info.dev = pContext;
+        pMac->scan.disable_scan_during_sco_timer_info.scan_id= *pScanRequestID;
+
+        vos_timer_start(&pMac->scan.disable_scan_during_sco_timer,
+                                                CSR_DISABLE_SCAN_DURING_SCO);
+        return eHAL_STATUS_SUCCESS;
+    }
+
     do
     {
         if(pMac->scan.fScanEnable &&
@@ -8646,7 +8664,7 @@ eHalStatus sme_8023MulticastList (tHalHandle hHal, tANI_U8 sessionId, tpSirRcvFl
 
     if(pSession == NULL )
     {
-        VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_ERROR, "%s: Unable to find "
+        VOS_TRACE(VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_WARN, "%s: Unable to find "
             "the right session", __func__);
         return eHAL_STATUS_FAILURE;
     }

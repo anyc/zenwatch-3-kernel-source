@@ -2309,6 +2309,21 @@ VOS_STATUS WDA_prepareConfigTLV(v_PVOID_t pVosContext,
 
 
    wdiStartParams->usConfigBufferLen = (tANI_U8 *)tlvStruct - tlvStructStart ;
+
+   /* QWLAN_HAL_CFG_DISABLE_SCAN_DURING_SCO  */
+   tlvStruct->type = QWLAN_HAL_CFG_DISABLE_SCAN_DURING_SCO ;
+   tlvStruct->length = sizeof(tANI_U32);
+   configDataValue = (tANI_U32 *)(tlvStruct + 1);
+
+   if (wlan_cfgGetInt(pMac, WNI_CFG_DISABLE_SCAN_DURING_SCO,
+                                            configDataValue ) != eSIR_SUCCESS)
+   {
+      VOS_TRACE( VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_ERROR,
+               "Failed to get value for WNI_CFG_DISABLE_SCAN_DURING_SCO");
+      goto handle_failure;
+   }
+   tlvStruct = (tHalCfg *)( (tANI_U8 *) tlvStruct
+                           + sizeof(tHalCfg) + tlvStruct->length) ;
 #ifdef WLAN_DEBUG
    {
       int i;
@@ -6780,7 +6795,7 @@ VOS_STATUS WDA_ProcessAddBASessionReq(tWDA_CbContext *pWDA,
    if((VOS_STATUS_SUCCESS != WDA_TL_GET_STA_STATE(pWDA->pVosContext, pAddBAReqParams->staIdx, &tlSTAState)) ||
     ((WLANTL_STA_CONNECTED != tlSTAState) && (WLANTL_STA_AUTHENTICATED != tlSTAState)))
    {
-       VOS_TRACE( VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_ERROR,
+       VOS_TRACE( VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_WARN,
         "Peer staIdx %d hasn't established yet(%d). Send ADD BA failure to PE.", pAddBAReqParams->staIdx, tlSTAState );
        status = WDI_STATUS_E_NOT_ALLOWED;
        pAddBAReqParams->status =
@@ -10957,7 +10972,7 @@ VOS_STATUS WDA_ProcessHostOffloadReq(tWDA_CbContext *pWDA,
 
    if(IS_WDI_STATUS_FAILURE(wstatus))
    {
-      VOS_TRACE( VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_ERROR,
+      VOS_TRACE( VOS_MODULE_ID_WDA, VOS_TRACE_LEVEL_WARN,
               "Failure in host offload REQ WDI API, free all the memory %d",
                wstatus);
       status = CONVERT_WDI2VOS_STATUS(wstatus);

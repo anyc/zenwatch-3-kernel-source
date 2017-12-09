@@ -71,7 +71,7 @@ static void do_write_event_worker(struct work_struct *work)
 			if (g_hfileEvtlog < 0)
 				printk("[adbg] 1. open %s failed during renaming old one, err:%d\n", ASUS_EVTLOG_PATH"ASUSEvtlog.txt", g_hfileEvtlog);
 		}
-		n = sprintf(buffer, "\n\n---------------System Boot----%s---------\n", ASUS_SW_VER);
+		n = sprintf(buffer, "\n\n---------------System Boot-------------\n");
 
 		// Add for power on/off reason +++
 		if (warm_reset_value) {

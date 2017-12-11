@@ -411,7 +411,7 @@ static const struct ieee80211_iface_limit hwsim_if_limits[] = {
 	{ .max = 1, .types = BIT(NL80211_IFTYPE_ADHOC) },
 	{ .max = 2048,  .types = BIT(NL80211_IFTYPE_STATION) |
 				 BIT(NL80211_IFTYPE_P2P_CLIENT) |
-#ifdef CONFIG_MAC80211_MESH
+#ifdef CONFIG_BACKPORT_MAC80211_MESH
 				 BIT(NL80211_IFTYPE_MESH_POINT) |
 #endif
 				 BIT(NL80211_IFTYPE_AP) |
@@ -1741,7 +1741,7 @@ static int mac80211_hwsim_get_survey(
 	return 0;
 }
 
-#ifdef CONFIG_NL80211_TESTMODE
+#ifdef CONFIG_BACKPORT_NL80211_TESTMODE
 /*
  * This section contains example code for using netlink
  * attributes with the testmode command in nl80211.
@@ -2193,7 +2193,7 @@ static void hwsim_mcast_config_msg(struct sk_buff *mcast_skb,
 {
 	if (info)
 		genl_notify(&hwsim_genl_family, mcast_skb,
-			    genl_info_net(info), info->snd_portid,
+			    genl_info_net(info), genl_info_snd_portid(info),
 			    HWSIM_MCGRP_CONFIG, info->nlhdr, GFP_KERNEL);
 	else
 		genlmsg_multicast(&hwsim_genl_family, mcast_skb, 0,
@@ -2355,7 +2355,7 @@ static int mac80211_hwsim_new_radio(struct genl_info *info,
 	data->idx = idx;
 	data->destroy_on_close = param->destroy_on_close;
 	if (info)
-		data->portid = info->snd_portid;
+		data->portid = genl_info_snd_portid(info);
 
 	if (data->use_chanctx) {
 		hw->wiphy->max_scan_ssids = 255;
@@ -2538,7 +2538,7 @@ static int mac80211_hwsim_new_radio(struct genl_info *info,
 
 	tasklet_hrtimer_init(&data->beacon_timer,
 			     mac80211_hwsim_beacon,
-			     CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
+			     CLOCK_MONOTONIC_RAW, HRTIMER_MODE_ABS);
 
 	spin_lock_bh(&hwsim_radio_lock);
 	list_add_tail(&data->list, &hwsim_radios);
@@ -2718,13 +2718,12 @@ static int hwsim_tx_info_frame_received_nl(struct sk_buff *skb_2,
 	int i;
 	bool found = false;
 
-	if (info->snd_portid != wmediumd_portid)
+	if (genl_info_snd_portid(info) != wmediumd_portid)
 		return -EINVAL;
 
 	if (!info->attrs[HWSIM_ATTR_ADDR_TRANSMITTER] ||
 	    !info->attrs[HWSIM_ATTR_FLAGS] ||
 	    !info->attrs[HWSIM_ATTR_COOKIE] ||
-	    !info->attrs[HWSIM_ATTR_SIGNAL] ||
 	    !info->attrs[HWSIM_ATTR_TX_INFO])
 		goto out;
 
@@ -2794,7 +2793,7 @@ static int hwsim_cloned_frame_received_nl(struct sk_buff *skb_2,
 	void *frame_data;
 	struct sk_buff *skb = NULL;
 
-	if (info->snd_portid != wmediumd_portid)
+	if (genl_info_snd_portid(info) != wmediumd_portid)
 		return -EINVAL;
 
 	if (!info->attrs[HWSIM_ATTR_ADDR_RECEIVER] ||
@@ -2872,10 +2871,11 @@ static int hwsim_register_received_nl(struct sk_buff *skb_2,
 	if (wmediumd_portid)
 		return -EBUSY;
 
-	wmediumd_portid = info->snd_portid;
+	wmediumd_portid = genl_info_snd_portid(info);
 
 	printk(KERN_DEBUG "mac80211_hwsim: received a REGISTER, "
-	       "switching to wmediumd mode with pid %d\n", info->snd_portid);
+	       "switching to wmediumd mode with pid %d\n",
+	       genl_info_snd_portid(info));
 
 	return 0;
 }
@@ -2883,7 +2883,6 @@ static int hwsim_register_received_nl(struct sk_buff *skb_2,
 static int hwsim_new_radio_nl(struct sk_buff *msg, struct genl_info *info)
 {
 	struct hwsim_new_radio_params param = { 0 };
-	const char *hwname = NULL;
 
 	param.reg_strict = info->attrs[HWSIM_ATTR_REG_STRICT_REG];
 	param.p2p_device = info->attrs[HWSIM_ATTR_SUPPORT_P2P_DEVICE];
@@ -2897,14 +2896,8 @@ static int hwsim_new_radio_nl(struct sk_buff *msg, struct genl_info *info)
 	if (info->attrs[HWSIM_ATTR_NO_VIF])
 		param.no_vif = true;
 
-	if (info->attrs[HWSIM_ATTR_RADIO_NAME]) {
-		hwname = kasprintf(GFP_KERNEL, "%.*s",
-				   nla_len(info->attrs[HWSIM_ATTR_RADIO_NAME]),
-				   (char *)nla_data(info->attrs[HWSIM_ATTR_RADIO_NAME]));
-		if (!hwname)
-			return -ENOMEM;
-		param.hwname = hwname;
-	}
+	if (info->attrs[HWSIM_ATTR_RADIO_NAME])
+		param.hwname = nla_data(info->attrs[HWSIM_ATTR_RADIO_NAME]);
 
 	if (info->attrs[HWSIM_ATTR_USE_CHANCTX])
 		param.use_chanctx = true;
@@ -2932,15 +2925,11 @@ static int hwsim_del_radio_nl(struct sk_buff *msg, struct genl_info *info)
 	s64 idx = -1;
 	const char *hwname = NULL;
 
-	if (info->attrs[HWSIM_ATTR_RADIO_ID]) {
+	if (info->attrs[HWSIM_ATTR_RADIO_ID])
 		idx = nla_get_u32(info->attrs[HWSIM_ATTR_RADIO_ID]);
-	} else if (info->attrs[HWSIM_ATTR_RADIO_NAME]) {
-		hwname = kasprintf(GFP_KERNEL, "%.*s",
-				   nla_len(info->attrs[HWSIM_ATTR_RADIO_NAME]),
-				   (char *)nla_data(info->attrs[HWSIM_ATTR_RADIO_NAME]));
-		if (!hwname)
-			return -ENOMEM;
-	} else
+	else if (info->attrs[HWSIM_ATTR_RADIO_NAME])
+		hwname = (void *)nla_data(info->attrs[HWSIM_ATTR_RADIO_NAME]);
+	else
 		return -EINVAL;
 
 	spin_lock_bh(&hwsim_radio_lock);
@@ -2949,8 +2938,7 @@ static int hwsim_del_radio_nl(struct sk_buff *msg, struct genl_info *info)
 			if (data->idx != idx)
 				continue;
 		} else {
-			if (!hwname ||
-			    strcmp(hwname, wiphy_name(data->hw->wiphy)))
+			if (strcmp(hwname, wiphy_name(data->hw->wiphy)))
 				continue;
 		}
 
@@ -2958,12 +2946,10 @@ static int hwsim_del_radio_nl(struct sk_buff *msg, struct genl_info *info)
 		spin_unlock_bh(&hwsim_radio_lock);
 		mac80211_hwsim_del_radio(data, wiphy_name(data->hw->wiphy),
 					 info);
-		kfree(hwname);
 		return 0;
 	}
 	spin_unlock_bh(&hwsim_radio_lock);
 
-	kfree(hwname);
 	return -ENODEV;
 }
 
@@ -2988,7 +2974,8 @@ static int hwsim_get_radio_nl(struct sk_buff *msg, struct genl_info *info)
 			goto out_err;
 		}
 
-		res = mac80211_hwsim_get_radio(skb, data, info->snd_portid,
+		res = mac80211_hwsim_get_radio(skb, data,
+					       genl_info_snd_portid(info),
 					       info->snd_seq, NULL, 0);
 		if (res < 0) {
 			nlmsg_free(skb);
@@ -3022,7 +3009,7 @@ static int hwsim_dump_radio_nl(struct sk_buff *skb,
 			continue;
 
 		res = mac80211_hwsim_get_radio(skb, data,
-					       NETLINK_CB(cb->skb).portid,
+					       NETLINK_CB_PORTID(cb->skb),
 					       cb->nlh->nlmsg_seq, cb,
 					       NLM_F_MULTI);
 		if (res < 0)
@@ -3108,9 +3095,9 @@ static int mac80211_hwsim_netlink_notify(struct notifier_block *nb,
 	if (state != NETLINK_URELEASE)
 		return NOTIFY_DONE;
 
-	remove_user_radios(notify->portid);
+	remove_user_radios(netlink_notify_portid(notify));
 
-	if (notify->portid == wmediumd_portid) {
+	if (netlink_notify_portid(notify) == wmediumd_portid) {
 		printk(KERN_INFO "mac80211_hwsim: wmediumd released netlink"
 		       " socket, switching to perfect channel medium\n");
 		wmediumd_portid = 0;

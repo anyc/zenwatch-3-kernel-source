@@ -52,7 +52,7 @@ static void ssb_buses_lock(void);
 static void ssb_buses_unlock(void);
 
 
-#ifdef CONFIG_SSB_PCIHOST
+#ifdef CONFIG_BACKPORT_SSB_PCIHOST
 struct ssb_bus *ssb_pci_dev_to_bus(struct pci_dev *pdev)
 {
 	struct ssb_bus *bus;
@@ -69,9 +69,9 @@ found:
 
 	return bus;
 }
-#endif /* CONFIG_SSB_PCIHOST */
+#endif /* CONFIG_BACKPORT_SSB_PCIHOST */
 
-#ifdef CONFIG_SSB_PCMCIAHOST
+#ifdef CONFIG_BACKPORT_SSB_PCMCIAHOST
 struct ssb_bus *ssb_pcmcia_dev_to_bus(struct pcmcia_device *pdev)
 {
 	struct ssb_bus *bus;
@@ -88,7 +88,7 @@ found:
 
 	return bus;
 }
-#endif /* CONFIG_SSB_PCMCIAHOST */
+#endif /* CONFIG_BACKPORT_SSB_PCMCIAHOST */
 
 int ssb_for_each_bus_call(unsigned long data,
 			  int (*func)(struct ssb_bus *bus, unsigned long data))
@@ -163,7 +163,7 @@ int ssb_bus_resume(struct ssb_bus *bus)
 	/* Reset HW state information in memory, so that HW is
 	 * completely reinitialized. */
 	bus->mapped_device = NULL;
-#ifdef CONFIG_SSB_DRIVER_PCICORE
+#ifdef CONFIG_BACKPORT_SSB_DRIVER_PCICORE
 	bus->pcicore.setup_done = 0;
 #endif
 
@@ -191,7 +191,7 @@ int ssb_bus_suspend(struct ssb_bus *bus)
 }
 EXPORT_SYMBOL(ssb_bus_suspend);
 
-#ifdef CONFIG_SSB_SPROM
+#ifdef CONFIG_BACKPORT_SSB_SPROM
 /** ssb_devices_freeze - Freeze all devices on the bus.
  *
  * After freezing no device driver will be handling a device
@@ -265,7 +265,7 @@ int ssb_devices_thaw(struct ssb_freeze_context *ctx)
 
 	return result;
 }
-#endif /* CONFIG_SSB_SPROM */
+#endif /* CONFIG_BACKPORT_SSB_SPROM */
 
 static void ssb_device_shutdown(struct device *dev)
 {
@@ -380,7 +380,12 @@ static struct attribute *ssb_device_attrs[] = {
 	&dev_attr_irq.attr,
 	NULL,
 };
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0)
 ATTRIBUTE_GROUPS(ssb_device);
+#else
+#define BP_ATTR_GRP_STRUCT device_attribute
+ATTRIBUTE_GROUPS_BACKPORT(ssb_device);
+#endif
 
 static struct bus_type ssb_bustype = {
 	.name		= "ssb",
@@ -391,7 +396,12 @@ static struct bus_type ssb_bustype = {
 	.suspend	= ssb_device_suspend,
 	.resume		= ssb_device_resume,
 	.uevent		= ssb_device_uevent,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0)
 	.dev_groups	= ssb_device_groups,
+#else
+	.dev_attrs = ssb_device_dev_attrs,
+#endif
+
 };
 
 static void ssb_buses_lock(void)
@@ -419,7 +429,7 @@ static void ssb_devices_unregister(struct ssb_bus *bus)
 			device_unregister(sdev->dev);
 	}
 
-#ifdef CONFIG_SSB_EMBEDDED
+#ifdef CONFIG_BACKPORT_SSB_EMBEDDED
 	if (bus->bustype == SSB_BUSTYPE_SSB)
 		platform_device_unregister(bus->watchdog);
 #endif
@@ -493,20 +503,20 @@ static int ssb_devices_register(struct ssb_bus *bus)
 
 		switch (bus->bustype) {
 		case SSB_BUSTYPE_PCI:
-#ifdef CONFIG_SSB_PCIHOST
+#ifdef CONFIG_BACKPORT_SSB_PCIHOST
 			sdev->irq = bus->host_pci->irq;
 			dev->parent = &bus->host_pci->dev;
 			sdev->dma_dev = dev->parent;
 #endif
 			break;
 		case SSB_BUSTYPE_PCMCIA:
-#ifdef CONFIG_SSB_PCMCIAHOST
+#ifdef CONFIG_BACKPORT_SSB_PCMCIAHOST
 			sdev->irq = bus->host_pcmcia->irq;
 			dev->parent = &bus->host_pcmcia->dev;
 #endif
 			break;
 		case SSB_BUSTYPE_SDIO:
-#ifdef CONFIG_SSB_SDIOHOST
+#ifdef CONFIG_BACKPORT_SSB_SDIOHOST
 			dev->parent = &bus->host_sdio->dev;
 #endif
 			break;
@@ -529,7 +539,7 @@ static int ssb_devices_register(struct ssb_bus *bus)
 		dev_idx++;
 	}
 
-#ifdef CONFIG_SSB_DRIVER_MIPS
+#ifdef CONFIG_BACKPORT_SSB_DRIVER_MIPS
 	if (bus->mipscore.pflash.present) {
 		err = platform_device_register(&ssb_pflash_dev);
 		if (err)
@@ -537,7 +547,7 @@ static int ssb_devices_register(struct ssb_bus *bus)
 	}
 #endif
 
-#ifdef CONFIG_SSB_SFLASH
+#ifdef CONFIG_BACKPORT_SSB_SFLASH
 	if (bus->mipscore.sflash.present) {
 		err = platform_device_register(&ssb_sflash_dev);
 		if (err)
@@ -620,7 +630,7 @@ static u32 ssb_ssb_read32(struct ssb_device *dev, u16 offset)
 	return readl(bus->mmio + offset);
 }
 
-#ifdef CONFIG_SSB_BLOCKIO
+#ifdef CONFIG_BACKPORT_SSB_BLOCKIO
 static void ssb_ssb_block_read(struct ssb_device *dev, void *buffer,
 			       size_t count, u16 offset, u8 reg_width)
 {
@@ -667,7 +677,7 @@ static void ssb_ssb_block_read(struct ssb_device *dev, void *buffer,
 		SSB_WARN_ON(1);
 	}
 }
-#endif /* CONFIG_SSB_BLOCKIO */
+#endif /* CONFIG_BACKPORT_SSB_BLOCKIO */
 
 static void ssb_ssb_write8(struct ssb_device *dev, u16 offset, u8 value)
 {
@@ -693,7 +703,7 @@ static void ssb_ssb_write32(struct ssb_device *dev, u16 offset, u32 value)
 	writel(value, bus->mmio + offset);
 }
 
-#ifdef CONFIG_SSB_BLOCKIO
+#ifdef CONFIG_BACKPORT_SSB_BLOCKIO
 static void ssb_ssb_block_write(struct ssb_device *dev, const void *buffer,
 				size_t count, u16 offset, u8 reg_width)
 {
@@ -740,7 +750,7 @@ static void ssb_ssb_block_write(struct ssb_device *dev, const void *buffer,
 		SSB_WARN_ON(1);
 	}
 }
-#endif /* CONFIG_SSB_BLOCKIO */
+#endif /* CONFIG_BACKPORT_SSB_BLOCKIO */
 
 /* Ops for the plain SSB bus without a host-device (no PCI or PCMCIA). */
 static const struct ssb_bus_ops ssb_ssb_ops = {
@@ -750,7 +760,7 @@ static const struct ssb_bus_ops ssb_ssb_ops = {
 	.write8		= ssb_ssb_write8,
 	.write16	= ssb_ssb_write16,
 	.write32	= ssb_ssb_write32,
-#ifdef CONFIG_SSB_BLOCKIO
+#ifdef CONFIG_BACKPORT_SSB_BLOCKIO
 	.block_read	= ssb_ssb_block_read,
 	.block_write	= ssb_ssb_block_write,
 #endif
@@ -781,7 +791,7 @@ static int ssb_bus_register(struct ssb_bus *bus,
 
 	spin_lock_init(&bus->bar_lock);
 	INIT_LIST_HEAD(&bus->list);
-#ifdef CONFIG_SSB_EMBEDDED
+#ifdef CONFIG_BACKPORT_SSB_EMBEDDED
 	spin_lock_init(&bus->gpio_lock);
 #endif
 
@@ -856,7 +866,7 @@ err_disable_xtal:
 	return err;
 }
 
-#ifdef CONFIG_SSB_PCIHOST
+#ifdef CONFIG_BACKPORT_SSB_PCIHOST
 int ssb_bus_pcibus_register(struct ssb_bus *bus, struct pci_dev *host_pci)
 {
 	int err;
@@ -877,9 +887,9 @@ int ssb_bus_pcibus_register(struct ssb_bus *bus, struct pci_dev *host_pci)
 	return err;
 }
 EXPORT_SYMBOL(ssb_bus_pcibus_register);
-#endif /* CONFIG_SSB_PCIHOST */
+#endif /* CONFIG_BACKPORT_SSB_PCIHOST */
 
-#ifdef CONFIG_SSB_PCMCIAHOST
+#ifdef CONFIG_BACKPORT_SSB_PCMCIAHOST
 int ssb_bus_pcmciabus_register(struct ssb_bus *bus,
 			       struct pcmcia_device *pcmcia_dev,
 			       unsigned long baseaddr)
@@ -899,9 +909,9 @@ int ssb_bus_pcmciabus_register(struct ssb_bus *bus,
 	return err;
 }
 EXPORT_SYMBOL(ssb_bus_pcmciabus_register);
-#endif /* CONFIG_SSB_PCMCIAHOST */
+#endif /* CONFIG_BACKPORT_SSB_PCMCIAHOST */
 
-#ifdef CONFIG_SSB_SDIOHOST
+#ifdef CONFIG_BACKPORT_SSB_SDIOHOST
 int ssb_bus_sdiobus_register(struct ssb_bus *bus, struct sdio_func *func,
 			     unsigned int quirks)
 {
@@ -921,7 +931,7 @@ int ssb_bus_sdiobus_register(struct ssb_bus *bus, struct sdio_func *func,
 	return err;
 }
 EXPORT_SYMBOL(ssb_bus_sdiobus_register);
-#endif /* CONFIG_SSB_PCMCIAHOST */
+#endif /* CONFIG_BACKPORT_SSB_PCMCIAHOST */
 
 int ssb_bus_ssbbus_register(struct ssb_bus *bus, unsigned long baseaddr,
 			    ssb_invariants_func_t get_invariants)
@@ -1325,7 +1335,7 @@ int ssb_bus_may_powerdown(struct ssb_bus *bus)
 	if (err)
 		goto error;
 out:
-#ifdef CONFIG_SSB_DEBUG
+#ifdef CONFIG_BACKPORT_SSB_DEBUG
 	bus->powered_up = 0;
 #endif
 	return err;
@@ -1344,7 +1354,7 @@ int ssb_bus_powerup(struct ssb_bus *bus, bool dynamic_pctl)
 	if (err)
 		goto error;
 
-#ifdef CONFIG_SSB_DEBUG
+#ifdef CONFIG_BACKPORT_SSB_DEBUG
 	bus->powered_up = 1;
 #endif
 
@@ -1361,7 +1371,7 @@ EXPORT_SYMBOL(ssb_bus_powerup);
 static void ssb_broadcast_value(struct ssb_device *dev,
 				u32 address, u32 data)
 {
-#ifdef CONFIG_SSB_DRIVER_PCICORE
+#ifdef CONFIG_BACKPORT_SSB_DRIVER_PCICORE
 	/* This is used for both, PCI and ChipCommon core, so be careful. */
 	BUILD_BUG_ON(SSB_PCICORE_BCAST_ADDR != SSB_CHIPCO_BCAST_ADDR);
 	BUILD_BUG_ON(SSB_PCICORE_BCAST_DATA != SSB_CHIPCO_BCAST_DATA);
@@ -1377,7 +1387,7 @@ void ssb_commit_settings(struct ssb_bus *bus)
 {
 	struct ssb_device *dev;
 
-#ifdef CONFIG_SSB_DRIVER_PCICORE
+#ifdef CONFIG_BACKPORT_SSB_DRIVER_PCICORE
 	dev = bus->chipco.dev ? bus->chipco.dev : bus->pcicore.dev;
 #else
 	dev = bus->chipco.dev;
@@ -1444,6 +1454,7 @@ static int __init ssb_modinit(void)
 
 	/* See the comment at the ssb_is_early_boot definition */
 	ssb_is_early_boot = 0;
+	init_ssb_device_attrs();
 	err = bus_register(&ssb_bustype);
 	if (err)
 		return err;

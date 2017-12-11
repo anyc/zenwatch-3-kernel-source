@@ -1133,7 +1133,7 @@ void cx231xx_config_i2c(struct cx231xx *dev)
 
 static void cx231xx_unregister_media_device(struct cx231xx *dev)
 {
-#ifdef CONFIG_MEDIA_CONTROLLER
+#ifdef CONFIG_BACKPORT_MEDIA_CONTROLLER
 	if (dev->media_dev) {
 		media_device_unregister(dev->media_dev);
 		kfree(dev->media_dev);
@@ -1172,7 +1172,7 @@ void cx231xx_release_resources(struct cx231xx *dev)
 static void cx231xx_media_device_register(struct cx231xx *dev,
 					  struct usb_device *udev)
 {
-#ifdef CONFIG_MEDIA_CONTROLLER
+#ifdef CONFIG_BACKPORT_MEDIA_CONTROLLER
 	struct media_device *mdev;
 	int ret;
 
@@ -1203,7 +1203,7 @@ static void cx231xx_media_device_register(struct cx231xx *dev,
 
 static void cx231xx_create_media_graph(struct cx231xx *dev)
 {
-#ifdef CONFIG_MEDIA_CONTROLLER
+#ifdef CONFIG_BACKPORT_MEDIA_CONTROLLER
 	struct media_device *mdev = dev->media_dev;
 	struct media_entity *entity;
 	struct media_entity *tuner = NULL, *decoder = NULL;
@@ -1411,9 +1411,6 @@ static int cx231xx_init_v4l2(struct cx231xx *dev,
 
 	uif = udev->actconfig->interface[idx];
 
-	if (uif->altsetting[0].desc.bNumEndpoints < isoc_pipe + 1)
-		return -ENODEV;
-
 	dev->video_mode.end_point_addr = uif->altsetting[0].endpoint[isoc_pipe].desc.bEndpointAddress;
 	dev->video_mode.num_alt = uif->num_altsetting;
 
@@ -1427,12 +1424,7 @@ static int cx231xx_init_v4l2(struct cx231xx *dev,
 		return -ENOMEM;
 
 	for (i = 0; i < dev->video_mode.num_alt; i++) {
-		u16 tmp;
-
-		if (uif->altsetting[i].desc.bNumEndpoints < isoc_pipe + 1)
-			return -ENODEV;
-
-		tmp = le16_to_cpu(uif->altsetting[i].endpoint[isoc_pipe].desc.wMaxPacketSize);
+		u16 tmp = le16_to_cpu(uif->altsetting[i].endpoint[isoc_pipe].desc.wMaxPacketSize);
 		dev->video_mode.alt_max_pkt_size[i] = (tmp & 0x07ff) * (((tmp & 0x1800) >> 11) + 1);
 		dev_dbg(dev->dev,
 			"Alternate setting %i, max size= %i\n", i,
@@ -1448,9 +1440,6 @@ static int cx231xx_init_v4l2(struct cx231xx *dev,
 		return -ENODEV;
 	}
 	uif = udev->actconfig->interface[idx];
-
-	if (uif->altsetting[0].desc.bNumEndpoints < isoc_pipe + 1)
-		return -ENODEV;
 
 	dev->vbi_mode.end_point_addr =
 	    uif->altsetting[0].endpoint[isoc_pipe].desc.
@@ -1468,12 +1457,8 @@ static int cx231xx_init_v4l2(struct cx231xx *dev,
 		return -ENOMEM;
 
 	for (i = 0; i < dev->vbi_mode.num_alt; i++) {
-		u16 tmp;
-
-		if (uif->altsetting[i].desc.bNumEndpoints < isoc_pipe + 1)
-			return -ENODEV;
-
-		tmp = le16_to_cpu(uif->altsetting[i].endpoint[isoc_pipe].
+		u16 tmp =
+		    le16_to_cpu(uif->altsetting[i].endpoint[isoc_pipe].
 				desc.wMaxPacketSize);
 		dev->vbi_mode.alt_max_pkt_size[i] =
 		    (tmp & 0x07ff) * (((tmp & 0x1800) >> 11) + 1);
@@ -1493,9 +1478,6 @@ static int cx231xx_init_v4l2(struct cx231xx *dev,
 	}
 	uif = udev->actconfig->interface[idx];
 
-	if (uif->altsetting[0].desc.bNumEndpoints < isoc_pipe + 1)
-		return -ENODEV;
-
 	dev->sliced_cc_mode.end_point_addr =
 	    uif->altsetting[0].endpoint[isoc_pipe].desc.
 			bEndpointAddress;
@@ -1510,12 +1492,7 @@ static int cx231xx_init_v4l2(struct cx231xx *dev,
 		return -ENOMEM;
 
 	for (i = 0; i < dev->sliced_cc_mode.num_alt; i++) {
-		u16 tmp;
-
-		if (uif->altsetting[i].desc.bNumEndpoints < isoc_pipe + 1)
-			return -ENODEV;
-
-		tmp = le16_to_cpu(uif->altsetting[i].endpoint[isoc_pipe].
+		u16 tmp = le16_to_cpu(uif->altsetting[i].endpoint[isoc_pipe].
 				desc.wMaxPacketSize);
 		dev->sliced_cc_mode.alt_max_pkt_size[i] =
 		    (tmp & 0x07ff) * (((tmp & 0x1800) >> 11) + 1);
@@ -1651,7 +1628,7 @@ static int cx231xx_usb_probe(struct usb_interface *interface,
 	cx231xx_media_device_register(dev, udev);
 
 	/* Create v4l2 device */
-#ifdef CONFIG_MEDIA_CONTROLLER
+#ifdef CONFIG_BACKPORT_MEDIA_CONTROLLER
 	dev->v4l2_dev.mdev = dev->media_dev;
 #endif
 	retval = v4l2_device_register(&interface->dev, &dev->v4l2_dev);
@@ -1680,11 +1657,6 @@ static int cx231xx_usb_probe(struct usb_interface *interface,
 		}
 		uif = udev->actconfig->interface[idx];
 
-		if (uif->altsetting[0].desc.bNumEndpoints < isoc_pipe + 1) {
-			retval = -ENODEV;
-			goto err_video_alt;
-		}
-
 		dev->ts1_mode.end_point_addr =
 		    uif->altsetting[0].endpoint[isoc_pipe].
 				desc.bEndpointAddress;
@@ -1702,14 +1674,7 @@ static int cx231xx_usb_probe(struct usb_interface *interface,
 		}
 
 		for (i = 0; i < dev->ts1_mode.num_alt; i++) {
-			u16 tmp;
-
-			if (uif->altsetting[i].desc.bNumEndpoints < isoc_pipe + 1) {
-				retval = -ENODEV;
-				goto err_video_alt;
-			}
-
-			tmp = le16_to_cpu(uif->altsetting[i].
+			u16 tmp = le16_to_cpu(uif->altsetting[i].
 						endpoint[isoc_pipe].desc.
 						wMaxPacketSize);
 			dev->ts1_mode.alt_max_pkt_size[i] =

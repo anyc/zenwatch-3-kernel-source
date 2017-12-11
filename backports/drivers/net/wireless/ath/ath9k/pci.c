@@ -27,19 +27,10 @@ static const struct pci_device_id ath_pci_id_table[] = {
 	{ PCI_VDEVICE(ATHEROS, 0x0023) }, /* PCI   */
 	{ PCI_VDEVICE(ATHEROS, 0x0024) }, /* PCI-E */
 	{ PCI_VDEVICE(ATHEROS, 0x0027) }, /* PCI   */
-
-#ifdef CONFIG_ATH9K_PCOEM
-	/* Mini PCI AR9220 MB92 cards: Compex WLM200NX, Wistron DNMA-92 */
-	{ PCI_DEVICE_SUB(PCI_VENDOR_ID_ATHEROS,
-			 0x0029,
-			 PCI_VENDOR_ID_ATHEROS,
-			 0x2096),
-	  .driver_data = ATH9K_PCI_LED_ACT_HI },
-#endif
-
 	{ PCI_VDEVICE(ATHEROS, 0x0029) }, /* PCI   */
+	{ PCI_VDEVICE(ATHEROS, 0x002A) }, /* PCI-E */
 
-#ifdef CONFIG_ATH9K_PCOEM
+#ifdef CONFIG_BACKPORT_ATH9K_PCOEM
 	{ PCI_DEVICE_SUB(PCI_VENDOR_ID_ATHEROS,
 			 0x002A,
 			 PCI_VENDOR_ID_AZWAVE,
@@ -85,11 +76,7 @@ static const struct pci_device_id ath_pci_id_table[] = {
 			 0x10CF, /* Fujitsu */
 			 0x1536),
 	  .driver_data = ATH9K_PCI_D3_L1_WAR },
-#endif
 
-	{ PCI_VDEVICE(ATHEROS, 0x002A) }, /* PCI-E */
-
-#ifdef CONFIG_ATH9K_PCOEM
 	/* AR9285 card for Asus */
 	{ PCI_DEVICE_SUB(PCI_VENDOR_ID_ATHEROS,
 			 0x002B,
@@ -117,7 +104,7 @@ static const struct pci_device_id ath_pci_id_table[] = {
 
 	{ PCI_VDEVICE(ATHEROS, 0x0030) }, /* PCI-E  AR9300 */
 
-#ifdef CONFIG_ATH9K_PCOEM
+#ifdef CONFIG_BACKPORT_ATH9K_PCOEM
 	/* PCI-E CUS198 */
 	{ PCI_DEVICE_SUB(PCI_VENDOR_ID_ATHEROS,
 			 0x0032,
@@ -315,7 +302,7 @@ static const struct pci_device_id ath_pci_id_table[] = {
 	{ PCI_VDEVICE(ATHEROS, 0x0032) }, /* PCI-E  AR9485 */
 	{ PCI_VDEVICE(ATHEROS, 0x0033) }, /* PCI-E  AR9580 */
 
-#ifdef CONFIG_ATH9K_PCOEM
+#ifdef CONFIG_BACKPORT_ATH9K_PCOEM
 	/* PCI-E CUS217 */
 	{ PCI_DEVICE_SUB(PCI_VENDOR_ID_ATHEROS,
 			 0x0034,

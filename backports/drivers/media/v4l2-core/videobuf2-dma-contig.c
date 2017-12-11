@@ -98,8 +98,10 @@ static void *vb2_dc_vaddr(void *buf_priv)
 {
 	struct vb2_dc_buf *buf = buf_priv;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 	if (!buf->vaddr && buf->db_attach)
 		buf->vaddr = dma_buf_vmap(buf->db_attach->dmabuf);
+#endif
 
 	return buf->vaddr;
 }
@@ -188,6 +190,52 @@ static void *vb2_dc_alloc(void *alloc_ctx, unsigned long size,
 	return buf;
 }
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0))
+static int
+backport_vb2_mmap_pfn_range(struct vm_area_struct *vma, unsigned long paddr,
+			    unsigned long size,
+			    const struct vm_operations_struct *vm_ops,
+			    void *priv)
+{
+	int ret;
+
+	size = min_t(unsigned long, vma->vm_end - vma->vm_start, size);
+
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	ret = remap_pfn_range(vma, vma->vm_start, paddr >> PAGE_SHIFT,
+				size, vma->vm_page_prot);
+	if (ret) {
+		printk(KERN_ERR "Remapping memory failed, error: %d\n", ret);
+		return ret;
+	}
+
+	vma->vm_flags		|= VM_DONTEXPAND | VM_DONTDUMP;
+	vma->vm_private_data	= priv;
+	vma->vm_ops		= vm_ops;
+
+	vma->vm_ops->open(vma);
+
+	pr_debug("%s: mapped paddr 0x%08lx at 0x%08lx, size %ld\n",
+			__func__, paddr, vma->vm_start, size);
+
+	return 0;
+}
+
+static int vb2_dc_mmap(void *buf_priv, struct vm_area_struct *vma)
+{
+	struct vb2_dc_buf *buf = buf_priv;
+
+	if (!buf) {
+		printk(KERN_ERR "No buffer to map\n");
+		return -EINVAL;
+	}
+
+	return backport_vb2_mmap_pfn_range(vma, buf->dma_addr, buf->size,
+					   &vb2_common_vm_ops, &buf->handler);
+}
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)) */
+#else
 static int vb2_dc_mmap(void *buf_priv, struct vm_area_struct *vma)
 {
 	struct vb2_dc_buf *buf = buf_priv;
@@ -224,7 +272,9 @@ static int vb2_dc_mmap(void *buf_priv, struct vm_area_struct *vma)
 
 	return 0;
 }
+#endif /* (LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0)) */
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 /*********************************************/
 /*         DMABUF ops for exporters          */
 /*********************************************/
@@ -424,6 +474,7 @@ static struct dma_buf *vb2_dc_get_dmabuf(void *buf_priv, unsigned long flags)
 
 	return dbuf;
 }
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0) */
 
 /*********************************************/
 /*       callbacks for USERPTR buffers       */
@@ -519,7 +570,9 @@ static void vb2_dc_put_userptr(void *buf_priv)
 	if (sgt) {
 		DEFINE_DMA_ATTRS(attrs);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 		dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &attrs);
+#endif
 		/*
 		 * No need to sync to CPU, it's already synced to the CPU
 		 * since the finish() memop will have been called before this.
@@ -584,7 +637,9 @@ static void *vb2_dc_get_userptr(void *alloc_ctx, unsigned long vaddr,
 	unsigned long dma_align = dma_get_cache_alignment();
 	DEFINE_DMA_ATTRS(attrs);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 	dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &attrs);
+#endif
 
 	/* Only cache aligned DMA transfers are reliable */
 	if (!IS_ALIGNED(vaddr | size, dma_align)) {
@@ -725,6 +780,7 @@ fail_buf:
 	return ERR_PTR(ret);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 /*********************************************/
 /*       callbacks for DMABUF buffers        */
 /*********************************************/
@@ -835,6 +891,7 @@ static void *vb2_dc_attach_dmabuf(void *alloc_ctx, struct dma_buf *dbuf,
 
 	return buf;
 }
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0) */
 
 /*********************************************/
 /*       DMA CONTIG exported functions       */
@@ -843,7 +900,9 @@ static void *vb2_dc_attach_dmabuf(void *alloc_ctx, struct dma_buf *dbuf,
 const struct vb2_mem_ops vb2_dma_contig_memops = {
 	.alloc		= vb2_dc_alloc,
 	.put		= vb2_dc_put,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 	.get_dmabuf	= vb2_dc_get_dmabuf,
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0) */
 	.cookie		= vb2_dc_cookie,
 	.vaddr		= vb2_dc_vaddr,
 	.mmap		= vb2_dc_mmap,
@@ -851,10 +910,12 @@ const struct vb2_mem_ops vb2_dma_contig_memops = {
 	.put_userptr	= vb2_dc_put_userptr,
 	.prepare	= vb2_dc_prepare,
 	.finish		= vb2_dc_finish,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 	.map_dmabuf	= vb2_dc_map_dmabuf,
 	.unmap_dmabuf	= vb2_dc_unmap_dmabuf,
 	.attach_dmabuf	= vb2_dc_attach_dmabuf,
 	.detach_dmabuf	= vb2_dc_detach_dmabuf,
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0) */
 	.num_users	= vb2_dc_num_users,
 };
 EXPORT_SYMBOL_GPL(vb2_dma_contig_memops);

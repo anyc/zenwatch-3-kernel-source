@@ -247,10 +247,12 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
 	else
 		ecmd->eth_tp_mdix = ETH_TP_MDI_INVALID;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
 	if (hw->phy.mdix == AUTO_ALL_MODES)
 		ecmd->eth_tp_mdix_ctrl = ETH_TP_MDI_AUTO;
 	else
 		ecmd->eth_tp_mdix_ctrl = hw->phy.mdix;
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0) */
 
 	return 0;
 }
@@ -269,6 +271,7 @@ static int igb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
 		return -EINVAL;
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
 	/* MDI setting is only allowed when autoneg enabled because
 	 * some hardware doesn't allow MDI setting when speed or
 	 * duplex is forced.
@@ -283,6 +286,7 @@ static int igb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
 			return -EINVAL;
 		}
 	}
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0) */
 
 	while (test_and_set_bit(__IGB_RESETTING, &adapter->state))
 		usleep_range(1000, 2000);
@@ -326,6 +330,7 @@ static int igb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
 		}
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
 	/* MDI-X => 2; MDI => 1; Auto => 3 */
 	if (ecmd->eth_tp_mdix_ctrl) {
 		/* fix up the value for auto (3 => 0) as zero is mapped
@@ -336,6 +341,7 @@ static int igb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
 		else
 			hw->phy.mdix = ecmd->eth_tp_mdix_ctrl;
 	}
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0) */
 
 	/* reset the link */
 	if (netif_running(adapter->netdev)) {
@@ -2352,6 +2358,7 @@ static void igb_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
 	}
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 static int igb_get_ts_info(struct net_device *dev,
 			   struct ethtool_ts_info *info)
 {
@@ -2407,6 +2414,7 @@ static int igb_get_ts_info(struct net_device *dev,
 		return -EOPNOTSUPP;
 	}
 }
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0) */
 
 static int igb_get_rss_hash_opts(struct igb_adapter *adapter,
 				 struct ethtool_rxnfc *cmd)
@@ -2450,8 +2458,14 @@ static int igb_get_rss_hash_opts(struct igb_adapter *adapter,
 	return 0;
 }
 
-static int igb_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
-			 u32 *rule_locs)
+static int igb_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)
+			 ,
+			 u32 *rule_locs
+#else
+			 , void *rule_locs
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0) */
+)
 {
 	struct igb_adapter *adapter = netdev_priv(dev);
 	int ret = -EOPNOTSUPP;
@@ -2591,6 +2605,7 @@ static int igb_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
 	return ret;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 static int igb_get_eee(struct net_device *netdev, struct ethtool_eee *edata)
 {
 	struct igb_adapter *adapter = netdev_priv(netdev);
@@ -2668,7 +2683,9 @@ static int igb_get_eee(struct net_device *netdev, struct ethtool_eee *edata)
 
 	return 0;
 }
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0) */
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 static int igb_set_eee(struct net_device *netdev,
 		       struct ethtool_eee *edata)
 {
@@ -2742,7 +2759,9 @@ static int igb_set_eee(struct net_device *netdev,
 
 	return 0;
 }
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0) */
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 static int igb_get_module_info(struct net_device *netdev,
 			       struct ethtool_modinfo *modinfo)
 {
@@ -2784,7 +2803,9 @@ static int igb_get_module_info(struct net_device *netdev,
 
 	return 0;
 }
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0) */
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 static int igb_get_module_eeprom(struct net_device *netdev,
 				 struct ethtool_eeprom *ee, u8 *data)
 {
@@ -2823,6 +2844,7 @@ static int igb_get_module_eeprom(struct net_device *netdev,
 
 	return 0;
 }
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0) */
 
 static int igb_ethtool_begin(struct net_device *netdev)
 {
@@ -2837,19 +2859,28 @@ static void igb_ethtool_complete(struct net_device *netdev)
 	pm_runtime_put(&adapter->pdev->dev);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
 static u32 igb_get_rxfh_indir_size(struct net_device *netdev)
 {
 	return IGB_RETA_SIZE;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)
 static int igb_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
 			u8 *hfunc)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
+static int igb_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key)
+#else
+static int igb_get_rxfh(struct net_device *netdev, u32 *indir)
+#endif
 {
 	struct igb_adapter *adapter = netdev_priv(netdev);
 	int i;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)
 	if (hfunc)
 		*hfunc = ETH_RSS_HASH_TOP;
+#endif
 	if (!indir)
 		return 0;
 	for (i = 0; i < IGB_RETA_SIZE; i++)
@@ -2857,6 +2888,7 @@ static int igb_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key,
 
 	return 0;
 }
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0) */
 
 void igb_write_rss_indir_tbl(struct igb_adapter *adapter)
 {
@@ -2893,18 +2925,28 @@ void igb_write_rss_indir_tbl(struct igb_adapter *adapter)
 	}
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)
 static int igb_set_rxfh(struct net_device *netdev, const u32 *indir,
 			const u8 *key, const u8 hfunc)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
+static int igb_set_rxfh(struct net_device *netdev, const u32 *indir,
+			const u8 *key)
+#else
+static int igb_set_rxfh(struct net_device *netdev, const u32 *indir)
+#endif
 {
 	struct igb_adapter *adapter = netdev_priv(netdev);
 	struct e1000_hw *hw = &adapter->hw;
 	int i;
 	u32 num_queues;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)
 	/* We do not allow change in unsupported parameters */
 	if (key ||
 	    (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP))
 		return -EOPNOTSUPP;
+#endif
 	if (!indir)
 		return 0;
 
@@ -2933,6 +2975,7 @@ static int igb_set_rxfh(struct net_device *netdev, const u32 *indir,
 
 	return 0;
 }
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0) */
 
 static unsigned int igb_max_channels(struct igb_adapter *adapter)
 {
@@ -2991,7 +3034,6 @@ static int igb_set_channels(struct net_device *netdev,
 {
 	struct igb_adapter *adapter = netdev_priv(netdev);
 	unsigned int count = ch->combined_count;
-	unsigned int max_combined = 0;
 
 	/* Verify they are not requesting separate vectors */
 	if (!count || ch->rx_count || ch->tx_count)
@@ -3002,13 +3044,11 @@ static int igb_set_channels(struct net_device *netdev,
 		return -EINVAL;
 
 	/* Verify the number of channels doesn't exceed hw limits */
-	max_combined = igb_max_channels(adapter);
-	if (count > max_combined)
+	if (count > igb_max_channels(adapter))
 		return -EINVAL;
 
 	if (count != adapter->rss_queues) {
 		adapter->rss_queues = count;
-		igb_set_flag_queue_pairs(adapter, max_combined);
 
 		/* Hardware has to reinitialize queues and interrupts to
 		 * match the new configuration.
@@ -3045,16 +3085,32 @@ static const struct ethtool_ops igb_ethtool_ops = {
 	.get_ethtool_stats	= igb_get_ethtool_stats,
 	.get_coalesce		= igb_get_coalesce,
 	.set_coalesce		= igb_set_coalesce,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 	.get_ts_info		= igb_get_ts_info,
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0) */
 	.get_rxnfc		= igb_get_rxnfc,
 	.set_rxnfc		= igb_set_rxnfc,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 	.get_eee		= igb_get_eee,
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0) */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 	.set_eee		= igb_set_eee,
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0) */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 	.get_module_info	= igb_get_module_info,
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0) */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 	.get_module_eeprom	= igb_get_module_eeprom,
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0) */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
 	.get_rxfh_indir_size	= igb_get_rxfh_indir_size,
 	.get_rxfh		= igb_get_rxfh,
 	.set_rxfh		= igb_set_rxfh,
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
+	.get_rxfh_indir_size	= igb_get_rxfh_indir_size,
+	.get_rxfh_indir		= igb_get_rxfh,
+	.set_rxfh_indir		= igb_set_rxfh,
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0) */
 	.get_channels		= igb_get_channels,
 	.set_channels		= igb_set_channels,
 	.begin			= igb_ethtool_begin,

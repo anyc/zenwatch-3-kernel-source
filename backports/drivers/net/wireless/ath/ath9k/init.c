@@ -49,10 +49,6 @@ int ath9k_led_blink;
 module_param_named(blink, ath9k_led_blink, int, 0444);
 MODULE_PARM_DESC(blink, "Enable LED blink on activity");
 
-static int ath9k_led_active_high = -1;
-module_param_named(led_active_high, ath9k_led_active_high, int, 0444);
-MODULE_PARM_DESC(led_active_high, "Invert LED polarity");
-
 static int ath9k_btcoex_enable;
 module_param_named(btcoex_enable, ath9k_btcoex_enable, int, 0444);
 MODULE_PARM_DESC(btcoex_enable, "Enable wifi-BT coexistence");
@@ -65,17 +61,17 @@ static int ath9k_ps_enable;
 module_param_named(ps_enable, ath9k_ps_enable, int, 0444);
 MODULE_PARM_DESC(ps_enable, "Enable WLAN PowerSave");
 
-#ifdef CONFIG_ATH9K_CHANNEL_CONTEXT
+#ifdef CONFIG_BACKPORT_ATH9K_CHANNEL_CONTEXT
 
 int ath9k_use_chanctx;
 module_param_named(use_chanctx, ath9k_use_chanctx, int, 0444);
 MODULE_PARM_DESC(use_chanctx, "Enable channel context for concurrency");
 
-#endif /* CONFIG_ATH9K_CHANNEL_CONTEXT */
+#endif /* CONFIG_BACKPORT_ATH9K_CHANNEL_CONTEXT */
 
 bool is_ath9k_unloaded;
 
-#ifdef CONFIG_MAC80211_LEDS
+#ifdef CONFIG_BACKPORT_MAC80211_LEDS
 static const struct ieee80211_tpt_blink ath9k_tpt_blink[] = {
 	{ .throughput = 0 * 1024, .blink_time = 334 },
 	{ .throughput = 1 * 1024, .blink_time = 260 },
@@ -395,7 +391,7 @@ static void ath9k_init_pcoem_platform(struct ath_softc *sc)
 	struct ath9k_hw_capabilities *pCap = &ah->caps;
 	struct ath_common *common = ath9k_hw_common(ah);
 
-	if (!IS_ENABLED(CONFIG_ATH9K_PCOEM))
+	if (!IS_ENABLED(CONFIG_BACKPORT_ATH9K_PCOEM))
 		return;
 
 	if (common->bus_ops->ath_bus_type != ATH_PCI)
@@ -604,9 +600,6 @@ static int ath9k_init_softc(u16 devid, struct ath_softc *sc,
 	if (ret)
 		return ret;
 
-	if (ath9k_led_active_high != -1)
-		ah->config.led_active_high = ath9k_led_active_high == 1;
-
 	/*
 	 * Enable WLAN/BT RX Antenna diversity only when:
 	 *
@@ -619,7 +612,6 @@ static int ath9k_init_softc(u16 devid, struct ath_softc *sc,
 		common->bt_ant_diversity = 1;
 
 	spin_lock_init(&common->cc_lock);
-	spin_lock_init(&sc->intr_lock);
 	spin_lock_init(&sc->sc_serial_rw);
 	spin_lock_init(&sc->sc_pm_lock);
 	spin_lock_init(&sc->chan_lock);
@@ -724,7 +716,7 @@ static void ath9k_init_txpower_limits(struct ath_softc *sc)
 static const struct ieee80211_iface_limit if_limits[] = {
 	{ .max = 2048,	.types = BIT(NL80211_IFTYPE_STATION) },
 	{ .max = 8,	.types =
-#ifdef CONFIG_MAC80211_MESH
+#ifdef CONFIG_BACKPORT_MAC80211_MESH
 				 BIT(NL80211_IFTYPE_MESH_POINT) |
 #endif
 				 BIT(NL80211_IFTYPE_AP) },
@@ -736,7 +728,7 @@ static const struct ieee80211_iface_limit wds_limits[] = {
 	{ .max = 2048,	.types = BIT(NL80211_IFTYPE_WDS) },
 };
 
-#ifdef CONFIG_ATH9K_CHANNEL_CONTEXT
+#ifdef CONFIG_BACKPORT_ATH9K_CHANNEL_CONTEXT
 
 static const struct ieee80211_iface_limit if_limits_multi[] = {
 	{ .max = 2,	.types = BIT(NL80211_IFTYPE_STATION) |
@@ -756,11 +748,11 @@ static const struct ieee80211_iface_combination if_comb_multi[] = {
 	},
 };
 
-#endif /* CONFIG_ATH9K_CHANNEL_CONTEXT */
+#endif /* CONFIG_BACKPORT_ATH9K_CHANNEL_CONTEXT */
 
 static const struct ieee80211_iface_limit if_dfs_limits[] = {
 	{ .max = 1,	.types = BIT(NL80211_IFTYPE_AP) |
-#ifdef CONFIG_MAC80211_MESH
+#ifdef CONFIG_BACKPORT_MAC80211_MESH
 				 BIT(NL80211_IFTYPE_MESH_POINT) |
 #endif
 				 BIT(NL80211_IFTYPE_ADHOC) },
@@ -781,7 +773,7 @@ static const struct ieee80211_iface_combination if_comb[] = {
 		.num_different_channels = 1,
 		.beacon_int_infra_match = true,
 	},
-#ifdef CONFIG_ATH9K_DFS_CERTIFIED
+#ifdef CONFIG_BACKPORT_ATH9K_DFS_CERTIFIED
 	{
 		.limits = if_dfs_limits,
 		.n_limits = ARRAY_SIZE(if_dfs_limits),
@@ -795,7 +787,7 @@ static const struct ieee80211_iface_combination if_comb[] = {
 #endif
 };
 
-#ifdef CONFIG_ATH9K_CHANNEL_CONTEXT
+#ifdef CONFIG_BACKPORT_ATH9K_CHANNEL_CONTEXT
 static void ath9k_set_mcc_capab(struct ath_softc *sc, struct ieee80211_hw *hw)
 {
 	struct ath_hw *ah = sc->sc_ah;
@@ -819,7 +811,7 @@ static void ath9k_set_mcc_capab(struct ath_softc *sc, struct ieee80211_hw *hw)
 
 	ath_dbg(common, CHAN_CTX, "Use channel contexts\n");
 }
-#endif /* CONFIG_ATH9K_CHANNEL_CONTEXT */
+#endif /* CONFIG_BACKPORT_ATH9K_CHANNEL_CONTEXT */
 
 static void ath9k_set_hw_capab(struct ath_softc *sc, struct ieee80211_hw *hw)
 {
@@ -853,7 +845,7 @@ static void ath9k_set_hw_capab(struct ath_softc *sc, struct ieee80211_hw *hw)
 			       NL80211_FEATURE_AP_MODE_CHAN_WIDTH_CHANGE |
 			       NL80211_FEATURE_P2P_GO_CTWIN;
 
-	if (!config_enabled(CONFIG_ATH9K_TX99)) {
+	if (!config_enabled(CONFIG_BACKPORT_ATH9K_TX99)) {
 		hw->wiphy->interface_modes =
 			BIT(NL80211_IFTYPE_P2P_GO) |
 			BIT(NL80211_IFTYPE_P2P_CLIENT) |
@@ -882,7 +874,6 @@ static void ath9k_set_hw_capab(struct ath_softc *sc, struct ieee80211_hw *hw)
 	hw->max_rate_tries = 10;
 	hw->sta_data_size = sizeof(struct ath_node);
 	hw->vif_data_size = sizeof(struct ath_vif);
-	hw->extra_tx_headroom = 4;
 
 	hw->wiphy->available_antennas_rx = BIT(ah->caps.max_rxchains) - 1;
 	hw->wiphy->available_antennas_tx = BIT(ah->caps.max_txchains) - 1;
@@ -901,7 +892,7 @@ static void ath9k_set_hw_capab(struct ath_softc *sc, struct ieee80211_hw *hw)
 		hw->wiphy->bands[IEEE80211_BAND_5GHZ] =
 			&common->sbands[IEEE80211_BAND_5GHZ];
 
-#ifdef CONFIG_ATH9K_CHANNEL_CONTEXT
+#ifdef CONFIG_BACKPORT_ATH9K_CHANNEL_CONTEXT
 	ath9k_set_mcc_capab(sc, hw);
 #endif
 	ath9k_init_wow(hw);
@@ -948,7 +939,7 @@ int ath9k_init_device(u16 devid, struct ath_softc *sc,
 
 	ath9k_init_txpower_limits(sc);
 
-#ifdef CONFIG_MAC80211_LEDS
+#ifdef CONFIG_BACKPORT_MAC80211_LEDS
 	/* must be initialized before ieee80211_register_hw */
 	sc->led_cdev.default_trigger = ieee80211_create_tpt_led_trigger(sc->hw,
 		IEEE80211_TPT_LEDTRIG_FL_RADIO, ath9k_tpt_blink,

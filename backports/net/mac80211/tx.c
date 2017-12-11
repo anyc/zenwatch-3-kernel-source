@@ -301,6 +301,9 @@ ieee80211_tx_h_check_assoc(struct ieee80211_tx_data *tx)
 	if (tx->sdata->vif.type == NL80211_IFTYPE_WDS)
 		return TX_CONTINUE;
 
+	if (tx->sdata->vif.type == NL80211_IFTYPE_MESH_POINT)
+		return TX_CONTINUE;
+
 	if (tx->flags & IEEE80211_TX_PS_BUFFERED)
 		return TX_CONTINUE;
 
@@ -310,7 +313,7 @@ ieee80211_tx_h_check_assoc(struct ieee80211_tx_data *tx)
 	if (likely(tx->flags & IEEE80211_TX_UNICAST)) {
 		if (unlikely(!assoc &&
 			     ieee80211_is_data(hdr->frame_control))) {
-#ifdef CONFIG_MAC80211_VERBOSE_DEBUG
+#ifdef CONFIG_BACKPORT_MAC80211_VERBOSE_DEBUG
 			sdata_info(tx->sdata,
 				   "dropped data frame to not associated station %pM\n",
 				   hdr->addr1);
@@ -355,7 +358,7 @@ static void purge_old_ps_buffers(struct ieee80211_local *local)
 		skb = skb_dequeue(&ps->bc_buf);
 		if (skb) {
 			purged++;
-			ieee80211_free_txskb(&local->hw, skb);
+			dev_kfree_skb(skb);
 		}
 		total += skb_queue_len(&ps->bc_buf);
 	}
@@ -438,7 +441,7 @@ ieee80211_tx_h_multicast_ps_buf(struct ieee80211_tx_data *tx)
 	if (skb_queue_len(&ps->bc_buf) >= AP_MAX_BC_BUFFER) {
 		ps_dbg(tx->sdata,
 		       "BC TX buffer full - dropping the oldest frame\n");
-		ieee80211_free_txskb(&tx->local->hw, skb_dequeue(&ps->bc_buf));
+		dev_kfree_skb(skb_dequeue(&ps->bc_buf));
 	} else
 		tx->local->total_ps_buffered++;
 
@@ -1318,7 +1321,7 @@ static bool ieee80211_tx_frags(struct ieee80211_local *local,
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 		int q = info->hw_queue;
 
-#ifdef CONFIG_MAC80211_VERBOSE_DEBUG
+#ifdef CONFIG_BACKPORT_MAC80211_VERBOSE_DEBUG
 		if (WARN_ON_ONCE(q >= local->hw.queues)) {
 			__skb_unlink(skb, skbs);
 			ieee80211_free_txskb(&local->hw, skb);
@@ -1919,7 +1922,7 @@ static int ieee80211_lookup_ra_sta(struct ieee80211_sub_if_data *sdata,
 	case NL80211_IFTYPE_WDS:
 		sta = sta_info_get(sdata, sdata->u.wds.remote_addr);
 		break;
-#ifdef CONFIG_MAC80211_MESH
+#ifdef CONFIG_BACKPORT_MAC80211_MESH
 	case NL80211_IFTYPE_MESH_POINT:
 		/* determined much later */
 		*sta_out = NULL;
@@ -2070,7 +2073,7 @@ static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
 		 */
 		band = local->hw.conf.chandef.chan->band;
 		break;
-#ifdef CONFIG_MAC80211_MESH
+#ifdef CONFIG_BACKPORT_MAC80211_MESH
 	case NL80211_IFTYPE_MESH_POINT:
 		if (!is_multicast_ether_addr(skb->data)) {
 			struct sta_info *next_hop;
@@ -2233,7 +2236,7 @@ static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
 		     !multicast && !authorized &&
 		     (cpu_to_be16(ethertype) != sdata->control_port_protocol ||
 		      !ether_addr_equal(sdata->vif.addr, skb->data + ETH_ALEN)))) {
-#ifdef CONFIG_MAC80211_VERBOSE_DEBUG
+#ifdef CONFIG_BACKPORT_MAC80211_VERBOSE_DEBUG
 		net_info_ratelimited("%s: dropped frame to %pM (unauthorized port)\n",
 				    sdata->name, hdr.addr1);
 #endif
@@ -2340,7 +2343,7 @@ static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
 		h_pos += encaps_len;
 	}
 
-#ifdef CONFIG_MAC80211_MESH
+#ifdef CONFIG_BACKPORT_MAC80211_MESH
 	if (meshhdrlen > 0) {
 		memcpy(skb_push(skb, meshhdrlen), &mesh_hdr, meshhdrlen);
 		nh_pos += meshhdrlen;
@@ -3247,7 +3250,7 @@ ieee80211_get_buffered_bc(struct ieee80211_hw *hw,
 			sdata = IEEE80211_DEV_TO_SUB_IF(skb->dev);
 		if (!ieee80211_tx_prepare(sdata, &tx, NULL, skb))
 			break;
-		ieee80211_free_txskb(hw, skb);
+		dev_kfree_skb_any(skb);
 	}
 
 	info = IEEE80211_SKB_CB(skb);

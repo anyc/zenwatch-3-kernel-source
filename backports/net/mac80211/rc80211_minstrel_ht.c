@@ -136,7 +136,7 @@
 		}					\
 	}
 
-#ifdef CONFIG_MAC80211_RC_MINSTREL_VHT
+#ifdef CONFIG_BACKPORT_MAC80211_RC_MINSTREL_VHT
 static bool minstrel_vht_only = true;
 module_param(minstrel_vht_only, bool, 0644);
 MODULE_PARM_DESC(minstrel_vht_only,
@@ -178,7 +178,7 @@ const struct mcs_group minstrel_mcs_groups[] = {
 
 	CCK_GROUP,
 
-#ifdef CONFIG_MAC80211_RC_MINSTREL_VHT
+#ifdef CONFIG_BACKPORT_MAC80211_RC_MINSTREL_VHT
 	VHT_GROUP(1, 0, BW_20),
 	VHT_GROUP(2, 0, BW_20),
 #if MINSTREL_MAX_STREAMS >= 3
@@ -593,7 +593,7 @@ minstrel_ht_update_stats(struct minstrel_priv *mp, struct minstrel_ht_sta *mi)
 	/* try to sample all available rates during each interval */
 	mi->sample_count *= 8;
 
-#ifdef CONFIG_MAC80211_DEBUGFS
+#ifdef CONFIG_BACKPORT_MAC80211_DEBUGFS
 	/* use fixed index if set */
 	if (mp->fixed_rate_idx != -1) {
 		for (i = 0; i < 4; i++)
@@ -691,7 +691,7 @@ minstrel_aggr_check(struct ieee80211_sta *pubsta, struct sk_buff *skb)
 	if (likely(sta->ampdu_mlme.tid_tx[tid]))
 		return;
 
-	ieee80211_start_tx_ba_session(pubsta, tid, 0);
+	ieee80211_start_tx_ba_session(pubsta, tid, 5000);
 }
 
 static void
@@ -1019,7 +1019,7 @@ minstrel_ht_get_rate(void *priv, struct ieee80211_sta *sta, void *priv_sta,
 	info->flags |= mi->tx_flags;
 	minstrel_ht_check_cck_shortpreamble(mp, mi, txrc->short_preamble);
 
-#ifdef CONFIG_MAC80211_DEBUGFS
+#ifdef CONFIG_BACKPORT_MAC80211_DEBUGFS
 	if (mp->fixed_rate_idx != -1)
 		return;
 #endif
@@ -1110,7 +1110,7 @@ minstrel_ht_update_caps(void *priv, struct ieee80211_supported_band *sband,
 
 	BUILD_BUG_ON(ARRAY_SIZE(minstrel_mcs_groups) != MINSTREL_GROUPS_NB);
 
-#ifdef CONFIG_MAC80211_RC_MINSTREL_VHT
+#ifdef CONFIG_BACKPORT_MAC80211_RC_MINSTREL_VHT
 	if (vht_cap->vht_supported)
 		use_vht = vht_cap->vht_mcs.tx_mcs_map != cpu_to_le16(~0);
 	else
@@ -1182,7 +1182,7 @@ minstrel_ht_update_caps(void *priv, struct ieee80211_supported_band *sband,
 
 		/* HT rate */
 		if (gflags & IEEE80211_TX_RC_MCS) {
-#ifdef CONFIG_MAC80211_RC_MINSTREL_VHT
+#ifdef CONFIG_BACKPORT_MAC80211_RC_MINSTREL_VHT
 			if (use_vht && minstrel_vht_only)
 				continue;
 #endif
@@ -1328,8 +1328,7 @@ static u32 minstrel_ht_get_expected_throughput(void *priv_sta)
 	prob = mi->groups[i].rates[j].prob_ewma;
 
 	/* convert tp_avg from pkt per second in kbps */
-	tp_avg = minstrel_ht_get_tp_avg(mi, i, j, prob) * 10;
-	tp_avg = tp_avg * AVG_PKT_SIZE * 8 / 1024;
+	tp_avg = minstrel_ht_get_tp_avg(mi, i, j, prob) * AVG_PKT_SIZE * 8 / 1024;
 
 	return tp_avg;
 }
@@ -1344,7 +1343,7 @@ static const struct rate_control_ops mac80211_minstrel_ht = {
 	.free_sta = minstrel_ht_free_sta,
 	.alloc = minstrel_ht_alloc,
 	.free = minstrel_ht_free,
-#ifdef CONFIG_MAC80211_DEBUGFS
+#ifdef CONFIG_BACKPORT_MAC80211_DEBUGFS
 	.add_sta_debugfs = minstrel_ht_add_sta_debugfs,
 	.remove_sta_debugfs = minstrel_ht_remove_sta_debugfs,
 #endif

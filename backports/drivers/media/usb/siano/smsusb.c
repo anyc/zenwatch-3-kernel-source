@@ -200,30 +200,22 @@ static int smsusb_start_streaming(struct smsusb_device_t *dev)
 static int smsusb_sendrequest(void *context, void *buffer, size_t size)
 {
 	struct smsusb_device_t *dev = (struct smsusb_device_t *) context;
-	struct sms_msg_hdr *phdr;
-	int dummy, ret;
+	struct sms_msg_hdr *phdr = (struct sms_msg_hdr *) buffer;
+	int dummy;
 
 	if (dev->state != SMSUSB_ACTIVE) {
 		pr_debug("Device not active yet\n");
 		return -ENOENT;
 	}
 
-	phdr = kmalloc(size, GFP_KERNEL);
-	if (!phdr)
-		return -ENOMEM;
-	memcpy(phdr, buffer, size);
-
 	pr_debug("sending %s(%d) size: %d\n",
 		  smscore_translate_msg(phdr->msg_type), phdr->msg_type,
 		  phdr->msg_length);
 
 	smsendian_handle_tx_message((struct sms_msg_data *) phdr);
-	smsendian_handle_message_header((struct sms_msg_hdr *)phdr);
-	ret = usb_bulk_msg(dev->udev, usb_sndbulkpipe(dev->udev, 2),
-			    phdr, size, &dummy, 1000);
-
-	kfree(phdr);
-	return ret;
+	smsendian_handle_message_header((struct sms_msg_hdr *)buffer);
+	return usb_bulk_msg(dev->udev, usb_sndbulkpipe(dev->udev, 2),
+			    buffer, size, &dummy, 1000);
 }
 
 static char *smsusb1_fw_lkup[] = {
@@ -351,7 +343,7 @@ static void smsusb_term_device(struct usb_interface *intf)
 static void *siano_media_device_register(struct smsusb_device_t *dev,
 					int board_id)
 {
-#ifdef CONFIG_MEDIA_CONTROLLER_DVB
+#ifdef CONFIG_BACKPORT_MEDIA_CONTROLLER_DVB
 	struct media_device *mdev;
 	struct usb_device *udev = dev->udev;
 	struct sms_board *board = sms_get_board(board_id);
@@ -448,7 +440,7 @@ static int smsusb_init_device(struct usb_interface *intf, int board_id)
 	if (rc < 0) {
 		pr_err("smscore_register_device(...) failed, rc %d\n", rc);
 		smsusb_term_device(intf);
-#ifdef CONFIG_MEDIA_CONTROLLER_DVB
+#ifdef CONFIG_BACKPORT_MEDIA_CONTROLLER_DVB
 		media_device_unregister(mdev);
 #endif
 		kfree(mdev);

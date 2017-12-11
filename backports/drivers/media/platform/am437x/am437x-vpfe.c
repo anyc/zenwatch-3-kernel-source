@@ -1185,23 +1185,13 @@ static int vpfe_initialize_device(struct vpfe_device *vpfe)
 static int vpfe_release(struct file *file)
 {
 	struct vpfe_device *vpfe = video_drvdata(file);
-	bool fh_singular;
 	int ret;
 
 	mutex_lock(&vpfe->lock);
 
-	/* Save the singular status before we call the clean-up helper */
-	fh_singular = v4l2_fh_is_singular_file(file);
-
-	/* the release helper will cleanup any on-going streaming */
-	ret = _vb2_fop_release(file, NULL);
-
-	/*
-	 * If this was the last open file.
-	 * Then de-initialize hw module.
-	 */
-	if (fh_singular)
+	if (v4l2_fh_is_singular_file(file))
 		vpfe_ccdc_close(&vpfe->ccdc, vpfe->pdev);
+	ret = _vb2_fop_release(file, NULL);
 
 	mutex_unlock(&vpfe->lock);
 
@@ -1587,7 +1577,7 @@ static int vpfe_s_fmt(struct file *file, void *priv,
 		return -EBUSY;
 	}
 
-	ret = __vpfe_get_format(vpfe, &format, &bpp);
+	ret = vpfe_try_fmt(file, priv, fmt);
 	if (ret)
 		return ret;
 
@@ -2282,7 +2272,9 @@ static const struct v4l2_ioctl_ops vpfe_ioctl_ops = {
 	.vidioc_querybuf		= vb2_ioctl_querybuf,
 	.vidioc_qbuf			= vb2_ioctl_qbuf,
 	.vidioc_dqbuf			= vb2_ioctl_dqbuf,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 	.vidioc_expbuf			= vb2_ioctl_expbuf,
+#endif
 	.vidioc_streamon		= vb2_ioctl_streamon,
 	.vidioc_streamoff		= vb2_ioctl_streamoff,
 

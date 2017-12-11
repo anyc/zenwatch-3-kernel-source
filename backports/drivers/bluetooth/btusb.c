@@ -144,10 +144,6 @@ static const struct usb_device_id btusb_table[] = {
 	{ USB_VENDOR_AND_INTERFACE_INFO(0x13d3, 0xff, 0x01, 0x01),
 	  .driver_info = BTUSB_BCM_PATCHRAM },
 
-	/* Toshiba Corp - Broadcom based */
-	{ USB_VENDOR_AND_INTERFACE_INFO(0x0930, 0xff, 0x01, 0x01),
-	  .driver_info = BTUSB_BCM_PATCHRAM },
-
 	/* Intel Bluetooth USB Bootloader (RAM module) */
 	{ USB_DEVICE(0x8087, 0x0a5a),
 	  .driver_info = BTUSB_INTEL_BOOT | BTUSB_BROKEN_ISOC },
@@ -182,9 +178,7 @@ static const struct usb_device_id blacklist_table[] = {
 	{ USB_DEVICE(0x0489, 0xe056), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x0489, 0xe057), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x0489, 0xe05f), .driver_info = BTUSB_ATH3012 },
-	{ USB_DEVICE(0x0489, 0xe076), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x0489, 0xe078), .driver_info = BTUSB_ATH3012 },
-	{ USB_DEVICE(0x0489, 0xe095), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x04c5, 0x1330), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x04ca, 0x3004), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x04ca, 0x3005), .driver_info = BTUSB_ATH3012 },
@@ -192,13 +186,9 @@ static const struct usb_device_id blacklist_table[] = {
 	{ USB_DEVICE(0x04ca, 0x3007), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x04ca, 0x3008), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x04ca, 0x300b), .driver_info = BTUSB_ATH3012 },
-	{ USB_DEVICE(0x04ca, 0x300d), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x04ca, 0x300f), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x04ca, 0x3010), .driver_info = BTUSB_ATH3012 },
-	{ USB_DEVICE(0x04ca, 0x3014), .driver_info = BTUSB_ATH3012 },
-	{ USB_DEVICE(0x04ca, 0x3018), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x0930, 0x0219), .driver_info = BTUSB_ATH3012 },
-	{ USB_DEVICE(0x0930, 0x021c), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x0930, 0x0220), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x0930, 0x0227), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x0b05, 0x17d0), .driver_info = BTUSB_ATH3012 },
@@ -210,7 +200,6 @@ static const struct usb_device_id blacklist_table[] = {
 	{ USB_DEVICE(0x0cf3, 0x311f), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x0cf3, 0x3121), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x0cf3, 0x817a), .driver_info = BTUSB_ATH3012 },
-	{ USB_DEVICE(0x0cf3, 0x817b), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x0cf3, 0xe003), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x0cf3, 0xe004), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x0cf3, 0xe005), .driver_info = BTUSB_ATH3012 },
@@ -218,15 +207,10 @@ static const struct usb_device_id blacklist_table[] = {
 	{ USB_DEVICE(0x13d3, 0x3362), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x13d3, 0x3375), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x13d3, 0x3393), .driver_info = BTUSB_ATH3012 },
-	{ USB_DEVICE(0x13d3, 0x3395), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x13d3, 0x3402), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x13d3, 0x3408), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x13d3, 0x3423), .driver_info = BTUSB_ATH3012 },
 	{ USB_DEVICE(0x13d3, 0x3432), .driver_info = BTUSB_ATH3012 },
-	{ USB_DEVICE(0x13d3, 0x3472), .driver_info = BTUSB_ATH3012 },
-	{ USB_DEVICE(0x13d3, 0x3474), .driver_info = BTUSB_ATH3012 },
-	{ USB_DEVICE(0x13d3, 0x3487), .driver_info = BTUSB_ATH3012 },
-	{ USB_DEVICE(0x13d3, 0x3490), .driver_info = BTUSB_ATH3012 },
 
 	/* Atheros AR5BBU12 with sflash firmware */
 	{ USB_DEVICE(0x0489, 0xe02c), .driver_info = BTUSB_IGNORE },
@@ -281,7 +265,7 @@ static const struct usb_device_id blacklist_table[] = {
 	{ USB_DEVICE(0x0e5e, 0x6622), .driver_info = BTUSB_BROKEN_ISOC },
 
 	/* Roper Class 1 Bluetooth Dongle (Silicon Wave based) */
-	{ USB_DEVICE(0x1310, 0x0001), .driver_info = BTUSB_SWAVE },
+	{ USB_DEVICE(0x1300, 0x0001), .driver_info = BTUSB_SWAVE },
 
 	/* Digianswer devices */
 	{ USB_DEVICE(0x08fd, 0x0001), .driver_info = BTUSB_DIGIANSWER },
@@ -323,7 +307,6 @@ static const struct usb_device_id blacklist_table[] = {
 	{ USB_DEVICE(0x13d3, 0x3410), .driver_info = BTUSB_REALTEK },
 	{ USB_DEVICE(0x13d3, 0x3416), .driver_info = BTUSB_REALTEK },
 	{ USB_DEVICE(0x13d3, 0x3459), .driver_info = BTUSB_REALTEK },
-	{ USB_DEVICE(0x13d3, 0x3494), .driver_info = BTUSB_REALTEK },
 
 	/* Additional Realtek 8821AE Bluetooth devices */
 	{ USB_DEVICE(0x0b05, 0x17dc), .driver_info = BTUSB_REALTEK },
@@ -2007,8 +1990,6 @@ static int btusb_setup_intel(struct hci_dev *hdev)
 	}
 	fw_ptr = fw->data;
 
-	kfree_skb(skb);
-
 	/* This Intel specific command enables the manufacturer mode of the
 	 * controller.
 	 *
@@ -2173,8 +2154,12 @@ static void btusb_intel_bootup(struct btusb_data *data, const void *ptr,
 		return;
 
 	if (test_and_clear_bit(BTUSB_BOOTING, &data->flags)) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 		smp_mb__after_atomic();
 		wake_up_bit(&data->flags, BTUSB_BOOTING);
+#else
+		wake_up_interruptible(&data->hdev->req_wait_q);
+#endif
 	}
 }
 
@@ -2191,8 +2176,12 @@ static void btusb_intel_secure_send_result(struct btusb_data *data,
 
 	if (test_and_clear_bit(BTUSB_DOWNLOADING, &data->flags) &&
 	    test_bit(BTUSB_FIRMWARE_LOADED, &data->flags)) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 		smp_mb__after_atomic();
 		wake_up_bit(&data->flags, BTUSB_DOWNLOADING);
+#else
+		wake_up_interruptible(&data->hdev->req_wait_q);
+#endif
 	}
 }
 
@@ -2350,7 +2339,6 @@ static int btusb_setup_intel_new(struct hci_dev *hdev)
 	struct intel_boot_params *params;
 	const struct firmware *fw;
 	const u8 *fw_ptr;
-	u32 frag_len;
 	char fwname[64];
 	ktime_t calltime, delta, rettime;
 	unsigned long long duration;
@@ -2557,33 +2545,24 @@ static int btusb_setup_intel_new(struct hci_dev *hdev)
 	}
 
 	fw_ptr = fw->data + 644;
-	frag_len = 0;
 
 	while (fw_ptr - fw->data < fw->size) {
-		struct hci_command_hdr *cmd = (void *)(fw_ptr + frag_len);
+		struct hci_command_hdr *cmd = (void *)fw_ptr;
+		u8 cmd_len;
 
-		frag_len += sizeof(*cmd) + cmd->plen;
+		cmd_len = sizeof(*cmd) + cmd->plen;
 
-		/* The paramter length of the secure send command requires
-		 * a 4 byte alignment. It happens so that the firmware file
-		 * contains proper Intel_NOP commands to align the fragments
-		 * as needed.
-		 *
-		 * Send set of commands with 4 byte alignment from the
-		 * firmware data buffer as a single Data fragement.
+		/* Send each command from the firmware data buffer as
+		 * a single Data fragment.
 		 */
-		if (!(frag_len % 4)) {
-			err = btusb_intel_secure_send(hdev, 0x01, frag_len,
-						      fw_ptr);
-			if (err < 0) {
-				BT_ERR("%s: Failed to send firmware data (%d)",
-				       hdev->name, err);
-				goto done;
-			}
-
-			fw_ptr += frag_len;
-			frag_len = 0;
+		err = btusb_intel_secure_send(hdev, 0x01, cmd_len, fw_ptr);
+		if (err < 0) {
+			BT_ERR("%s: Failed to send firmware data (%d)",
+			       hdev->name, err);
+			goto done;
 		}
+
+		fw_ptr += cmd_len;
 	}
 
 	set_bit(BTUSB_FIRMWARE_LOADED, &data->flags);
@@ -2601,6 +2580,7 @@ static int btusb_setup_intel_new(struct hci_dev *hdev)
 	 * and thus just timeout if that happens and fail the setup
 	 * of this device.
 	 */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 	err = wait_on_bit_timeout(&data->flags, BTUSB_DOWNLOADING,
 				  TASK_INTERRUPTIBLE,
 				  msecs_to_jiffies(5000));
@@ -2615,6 +2595,31 @@ static int btusb_setup_intel_new(struct hci_dev *hdev)
 		err = -ETIMEDOUT;
 		goto done;
 	}
+#else
+	if (test_bit(BTUSB_DOWNLOADING, &data->flags)) {
+		DECLARE_WAITQUEUE(wait, current);
+		signed long timeout;
+
+		add_wait_queue(&hdev->req_wait_q, &wait);
+		set_current_state(TASK_INTERRUPTIBLE);
+
+		timeout = schedule_timeout(msecs_to_jiffies(5000));
+
+		remove_wait_queue(&hdev->req_wait_q, &wait);
+
+		if (signal_pending(current)) {
+			BT_ERR("%s: Firmware loading interrupted", hdev->name);
+			err = -EINTR;
+			goto done;
+		}
+
+		if (!timeout) {
+			BT_ERR("%s: Firmware loading timeout", hdev->name);
+			err = -ETIMEDOUT;
+			goto done;
+		}
+	}
+#endif
 
 	if (test_bit(BTUSB_FIRMWARE_FAILED, &data->flags)) {
 		BT_ERR("%s: Firmware loading failed", hdev->name);
@@ -2654,6 +2659,7 @@ done:
 	 */
 	BT_INFO("%s: Waiting for device to boot", hdev->name);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
 	err = wait_on_bit_timeout(&data->flags, BTUSB_BOOTING,
 				  TASK_INTERRUPTIBLE,
 				  msecs_to_jiffies(1000));
@@ -2667,6 +2673,33 @@ done:
 		BT_ERR("%s: Device boot timeout", hdev->name);
 		return -ETIMEDOUT;
 	}
+#else
+	if (test_bit(BTUSB_BOOTING, &data->flags)) {
+		DECLARE_WAITQUEUE(wait, current);
+		signed long timeout;
+
+		add_wait_queue(&hdev->req_wait_q, &wait);
+		set_current_state(TASK_INTERRUPTIBLE);
+
+		/* Booting into operational firmware should not take
+		 * longer than 1 second. However if that happens, then
+		 * just fail the setup since something went wrong.
+		 */
+		timeout = schedule_timeout(msecs_to_jiffies(1000));
+
+		remove_wait_queue(&hdev->req_wait_q, &wait);
+
+		if (signal_pending(current)) {
+			BT_ERR("%s: Device boot interrupted", hdev->name);
+			return -EINTR;
+		}
+
+		if (!timeout) {
+			BT_ERR("%s: Device boot timeout", hdev->name);
+			return -ETIMEDOUT;
+		}
+	}
+#endif
 
 	rettime = ktime_get();
 	delta = ktime_sub(rettime, calltime);
@@ -3156,7 +3189,7 @@ static int btusb_probe(struct usb_interface *intf,
 	if (id->driver_info & BTUSB_BCM92035)
 		hdev->setup = btusb_setup_bcm92035;
 
-#ifdef CONFIG_BT_HCIBTUSB_BCM
+#ifdef CONFIG_BACKPORT_BT_HCIBTUSB_BCM
 	if (id->driver_info & BTUSB_BCM_PATCHRAM) {
 		hdev->setup = btbcm_setup_patchram;
 		hdev->set_bdaddr = btbcm_set_bdaddr;
@@ -3423,7 +3456,9 @@ static struct usb_driver btusb_driver = {
 #endif
 	.id_table	= btusb_table,
 	.supports_autosuspend = 1,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0))
 	.disable_hub_initiated_lpm = 1,
+#endif
 };
 
 module_usb_driver(btusb_driver);

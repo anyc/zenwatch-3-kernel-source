@@ -81,7 +81,7 @@
 
 /* Hardware specific file defines the PCI IDs table for that hardware module */
 static const struct pci_device_id iwl_hw_card_ids[] = {
-#if IS_ENABLED(CONFIG_IWLDVM)
+#if IS_ENABLED(CONFIG_BACKPORT_IWLDVM)
 	{IWL_PCI_DEVICE(0x4232, 0x1201, iwl5100_agn_cfg)}, /* Mini Card */
 	{IWL_PCI_DEVICE(0x4232, 0x1301, iwl5100_agn_cfg)}, /* Half Mini Card */
 	{IWL_PCI_DEVICE(0x4232, 0x1204, iwl5100_agn_cfg)}, /* Mini Card */
@@ -268,9 +268,9 @@ static const struct pci_device_id iwl_hw_card_ids[] = {
 	{IWL_PCI_DEVICE(0x0892, 0x0062, iwl135_bgn_cfg)},
 	{IWL_PCI_DEVICE(0x0893, 0x0262, iwl135_bgn_cfg)},
 	{IWL_PCI_DEVICE(0x0892, 0x0462, iwl135_bgn_cfg)},
-#endif /* CONFIG_IWLDVM */
+#endif /* CONFIG_BACKPORT_IWLDVM */
 
-#if IS_ENABLED(CONFIG_IWLMVM)
+#if IS_ENABLED(CONFIG_BACKPORT_IWLMVM)
 /* 7260 Series */
 	{IWL_PCI_DEVICE(0x08B1, 0x4070, iwl7260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x08B1, 0x4072, iwl7260_2ac_cfg)},
@@ -382,7 +382,6 @@ static const struct pci_device_id iwl_hw_card_ids[] = {
 	{IWL_PCI_DEVICE(0x095B, 0x5310, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095B, 0x5302, iwl7265_n_cfg)},
 	{IWL_PCI_DEVICE(0x095B, 0x5210, iwl7265_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x095A, 0x5C10, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x5012, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x5412, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x5410, iwl7265_2ac_cfg)},
@@ -400,10 +399,10 @@ static const struct pci_device_id iwl_hw_card_ids[] = {
 	{IWL_PCI_DEVICE(0x095A, 0x900A, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x9110, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x9112, iwl7265_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x095B, 0x9210, iwl7265_2ac_cfg)},
+	{IWL_PCI_DEVICE(0x095A, 0x9210, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095B, 0x9200, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x9510, iwl7265_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x095B, 0x9310, iwl7265_2ac_cfg)},
+	{IWL_PCI_DEVICE(0x095A, 0x9310, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x9410, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x5020, iwl7265_2n_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x502A, iwl7265_2n_cfg)},
@@ -413,31 +412,18 @@ static const struct pci_device_id iwl_hw_card_ids[] = {
 	{IWL_PCI_DEVICE(0x095A, 0x5590, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095B, 0x5290, iwl7265_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x095A, 0x5490, iwl7265_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x095A, 0x5F10, iwl7265_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x095B, 0x5212, iwl7265_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x095B, 0x520A, iwl7265_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x095A, 0x9000, iwl7265_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x095A, 0x9400, iwl7265_2ac_cfg)},
 
 /* 8000 Series */
 	{IWL_PCI_DEVICE(0x24F3, 0x0010, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0x1010, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x10B0, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x0130, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x1130, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x0132, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x1132, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0x0110, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x01F0, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x0012, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x1012, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0x1110, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0x0050, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0x0250, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0x1050, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0x0150, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x1150, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F4, 0x0030, iwl8260_2ac_cfg)},
+	{IWL_PCI_DEVICE(0x24F4, 0x1130, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F4, 0x1030, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0xC010, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0xD010, iwl8260_2ac_cfg)},
@@ -445,32 +431,20 @@ static const struct pci_device_id iwl_hw_card_ids[] = {
 	{IWL_PCI_DEVICE(0x24F4, 0xD030, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0xC050, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0xD050, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0xD0B0, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0xB0B0, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0x8010, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x8110, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0x9010, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x9110, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F4, 0x8030, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F4, 0x9030, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x8130, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x9130, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x8132, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x9132, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0x8050, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x8150, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0x9050, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x9150, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0x0004, iwl8260_2n_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x0044, iwl8260_2n_cfg)},
 	{IWL_PCI_DEVICE(0x24F5, 0x0010, iwl4165_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F6, 0x0030, iwl4165_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0x0810, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0x0910, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0x0850, iwl8260_2ac_cfg)},
 	{IWL_PCI_DEVICE(0x24F3, 0x0950, iwl8260_2ac_cfg)},
-	{IWL_PCI_DEVICE(0x24F3, 0x0930, iwl8260_2ac_cfg)},
-#endif /* CONFIG_IWLMVM */
+#endif /* CONFIG_BACKPORT_IWLMVM */
 
 	{0}
 };
@@ -567,7 +541,7 @@ static int iwl_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (IS_ERR(iwl_trans))
 		return PTR_ERR(iwl_trans);
 
-#if IS_ENABLED(CONFIG_IWLMVM)
+#if IS_ENABLED(CONFIG_BACKPORT_IWLMVM)
 	/*
 	 * special-case 7265D, it has the same PCI IDs.
 	 *

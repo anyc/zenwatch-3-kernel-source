@@ -70,7 +70,13 @@ static int cdc_mbim_wdm_manage_power(struct usb_interface *intf, int status)
 	return cdc_mbim_manage_power(dev, status);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 static int cdc_mbim_rx_add_vid(struct net_device *netdev, __be16 proto, u16 vid)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
+static int cdc_mbim_rx_add_vid(struct net_device *netdev, u16 vid)
+#else
+static void cdc_mbim_rx_add_vid(struct net_device *netdev, u16 vid)
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0) */
 {
 	struct usbnet *dev = netdev_priv(netdev);
 	struct cdc_mbim_state *info = (void *)&dev->data;
@@ -78,13 +84,21 @@ static int cdc_mbim_rx_add_vid(struct net_device *netdev, __be16 proto, u16 vid)
 	/* creation of this VLAN is a request to tag IP session 0 */
 	if (vid == MBIM_IPS0_VID)
 		info->flags |= FLAG_IPS0_VLAN;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
 	else
 		if (vid >= 512)	/* we don't map these to MBIM session */
 			return -EINVAL;
 	return 0;
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0) */
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 static int cdc_mbim_rx_kill_vid(struct net_device *netdev, __be16 proto, u16 vid)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
+static int cdc_mbim_rx_kill_vid(struct net_device *netdev, u16 vid)
+#else
+static void cdc_mbim_rx_kill_vid(struct net_device *netdev, u16 vid)
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0) */
 {
 	struct usbnet *dev = netdev_priv(netdev);
 	struct cdc_mbim_state *info = (void *)&dev->data;
@@ -92,7 +106,9 @@ static int cdc_mbim_rx_kill_vid(struct net_device *netdev, __be16 proto, u16 vid
 	/* this is a request for an untagged IP session 0 */
 	if (vid == MBIM_IPS0_VID)
 		info->flags &= ~FLAG_IPS0_VLAN;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
 	return 0;
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0) */
 }
 
 static const struct net_device_ops cdc_mbim_netdev_ops = {
@@ -100,7 +116,7 @@ static const struct net_device_ops cdc_mbim_netdev_ops = {
 	.ndo_stop             = usbnet_stop,
 	.ndo_start_xmit       = usbnet_start_xmit,
 	.ndo_tx_timeout       = usbnet_tx_timeout,
-	.ndo_change_mtu       = cdc_ncm_change_mtu,
+	.ndo_change_mtu       = usbnet_change_mtu,
 	.ndo_set_mac_address  = eth_mac_addr,
 	.ndo_validate_addr    = eth_validate_addr,
 	.ndo_vlan_rx_add_vid  = cdc_mbim_rx_add_vid,
@@ -301,6 +317,7 @@ error:
 	return NULL;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0)
 /* Some devices are known to send Neigbor Solicitation messages and
  * require Neigbor Advertisement replies.  The IPv6 core will not
  * respond since IFF_NOARP is set, so we must handle them ourselves.
@@ -361,6 +378,7 @@ static bool is_neigh_solicit(u8 *buf, size_t len)
 		msg->icmph.icmp6_code == 0 &&
 		msg->icmph.icmp6_type == NDISC_NEIGHBOUR_SOLICITATION);
 }
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0) */
 
 
 static struct sk_buff *cdc_mbim_process_dgram(struct usbnet *dev, u8 *buf, size_t len, u16 tci)
@@ -377,8 +395,10 @@ static struct sk_buff *cdc_mbim_process_dgram(struct usbnet *dev, u8 *buf, size_
 			proto = htons(ETH_P_IP);
 			break;
 		case 0x60:
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0)
 			if (is_neigh_solicit(buf, len))
 				do_neigh_solicit(dev, buf, tci);
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0) */
 			proto = htons(ETH_P_IPV6);
 			break;
 		default:
@@ -615,7 +635,9 @@ static struct usb_driver cdc_mbim_driver = {
 	.resume = cdc_mbim_resume,
 	.reset_resume =	cdc_mbim_resume,
 	.supports_autosuspend = 1,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0))
 	.disable_hub_initiated_lpm = 1,
+#endif
 };
 module_usb_driver(cdc_mbim_driver);
 

@@ -344,6 +344,17 @@ struct wiphy *wiphy_new_nm(const struct cfg80211_ops *ops, int sizeof_priv,
 	struct cfg80211_registered_device *rdev;
 	int alloc_size;
 
+	/*
+	 * Make sure the padding is >= the rest of the struct so that we
+	 * always keep it large enough to pad out the entire original
+	 * kernel's struct. We really only need to make sure it's larger
+	 * than the kernel compat is compiled against, but since it'll
+	 * only increase in size make sure it's larger than the current
+	 * version of it. Subtract since it's included.
+	 */
+	BUILD_BUG_ON(WIPHY_COMPAT_PAD_SIZE <
+		     sizeof(struct wiphy) - WIPHY_COMPAT_PAD_SIZE);
+
 	WARN_ON(ops->add_key && (!ops->del_key || !ops->set_default_key));
 	WARN_ON(ops->auth && (!ops->assoc || !ops->deauth || !ops->disassoc));
 	WARN_ON(ops->connect && !ops->disconnect);
@@ -409,10 +420,6 @@ use_default_name:
 	INIT_WORK(&rdev->sched_scan_results_wk, __cfg80211_sched_scan_results);
 	INIT_DELAYED_WORK(&rdev->dfs_update_channels_wk,
 			  cfg80211_dfs_channels_update_work);
-#ifdef CONFIG_CFG80211_WEXT
-	rdev->wiphy.wext = &cfg80211_wext_handler;
-#endif
-
 	device_initialize(&rdev->wiphy.dev);
 	rdev->wiphy.dev.class = &ieee80211_class;
 	rdev->wiphy.dev.platform_data = rdev;
@@ -422,7 +429,7 @@ use_default_name:
 	INIT_WORK(&rdev->destroy_work, cfg80211_destroy_iface_wk);
 	INIT_WORK(&rdev->sched_scan_stop_wk, cfg80211_sched_scan_stop_wk);
 
-#ifdef CONFIG_CFG80211_DEFAULT_PS
+#ifdef CONFIG_BACKPORT_CFG80211_DEFAULT_PS
 	rdev->wiphy.flags |= WIPHY_FLAG_PS_ON_BY_DEFAULT;
 #endif
 
@@ -897,7 +904,7 @@ void __cfg80211_leave(struct cfg80211_registered_device *rdev,
 		if (sched_scan_req && dev == sched_scan_req->dev)
 			__cfg80211_stop_sched_scan(rdev, false);
 
-#ifdef CONFIG_CFG80211_WEXT
+#ifdef CONFIG_BACKPORT_CFG80211_WEXT
 		kfree(wdev->wext.ie);
 		wdev->wext.ie = NULL;
 		wdev->wext.ie_len = 0;
@@ -1005,7 +1012,16 @@ static int cfg80211_netdev_notifier_call(struct notifier_block *nb,
 			pr_err("failed to add phy80211 symlink to netdev!\n");
 		}
 		wdev->netdev = dev;
-#ifdef CONFIG_CFG80211_WEXT
+#ifdef CONFIG_BACKPORT_CFG80211_WEXT
+#ifdef CONFIG_WIRELESS_EXT
+		if (!dev->wireless_handlers)
+			dev->wireless_handlers = &cfg80211_wext_handler;
+#else
+		printk_once(KERN_WARNING "cfg80211: wext will not work because "
+			    "kernel was compiled with CONFIG_WIRELESS_EXT=n. "
+			    "Tools using wext interface, like iwconfig will "
+			    "not work.\n");
+#endif
 		wdev->wext.default_key = -1;
 		wdev->wext.default_mgmt_key = -1;
 		wdev->wext.connect.auth_type = NL80211_AUTHTYPE_AUTOMATIC;
@@ -1047,7 +1063,7 @@ static int cfg80211_netdev_notifier_call(struct notifier_block *nb,
 		cfg80211_update_iface_num(rdev, wdev->iftype, 1);
 		wdev_lock(wdev);
 		switch (wdev->iftype) {
-#ifdef CONFIG_CFG80211_WEXT
+#ifdef CONFIG_BACKPORT_CFG80211_WEXT
 		case NL80211_IFTYPE_ADHOC:
 			cfg80211_ibss_wext_join(rdev, wdev);
 			break;
@@ -1055,7 +1071,7 @@ static int cfg80211_netdev_notifier_call(struct notifier_block *nb,
 			cfg80211_mgd_wext_connect(rdev, wdev);
 			break;
 #endif
-#ifdef CONFIG_MAC80211_MESH
+#ifdef CONFIG_BACKPORT_MAC80211_MESH
 		case NL80211_IFTYPE_MESH_POINT:
 			{
 				/* backward compat code... */
@@ -1104,7 +1120,7 @@ static int cfg80211_netdev_notifier_call(struct notifier_block *nb,
 			list_del_rcu(&wdev->list);
 			rdev->devlist_generation++;
 			cfg80211_mlme_purge_registrations(wdev);
-#ifdef CONFIG_CFG80211_WEXT
+#ifdef CONFIG_BACKPORT_CFG80211_WEXT
 			kzfree(wdev->wext.keys);
 #endif
 		}
@@ -1137,8 +1153,6 @@ static int cfg80211_netdev_notifier_call(struct notifier_block *nb,
 	default:
 		return NOTIFY_DONE;
 	}
-
-	wireless_nlevent_flush();
 
 	return NOTIFY_OK;
 }

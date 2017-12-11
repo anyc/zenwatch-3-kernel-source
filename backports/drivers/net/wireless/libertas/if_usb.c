@@ -959,6 +959,7 @@ static int if_usb_suspend(struct usb_interface *intf, pm_message_t message)
 		goto out;
 	}
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,1,0))
 #ifdef CONFIG_OLPC
 	if (machine_is_olpc()) {
 		if (priv->wol_criteria == EHS_REMOVE_WAKEUP)
@@ -966,6 +967,7 @@ static int if_usb_suspend(struct usb_interface *intf, pm_message_t message)
 		else
 			olpc_ec_wakeup_set(EC_SCI_SRC_WLAN);
 	}
+#endif
 #endif
 
 	ret = lbs_suspend(priv);
@@ -1008,7 +1010,9 @@ static struct usb_driver if_usb_driver = {
 	.suspend = if_usb_suspend,
 	.resume = if_usb_resume,
 	.reset_resume = if_usb_resume,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0))
 	.disable_hub_initiated_lpm = 1,
+#endif
 };
 
 module_usb_driver(if_usb_driver);

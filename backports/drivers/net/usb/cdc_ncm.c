@@ -41,7 +41,6 @@
 #include <linux/module.h>
 #include <linux/netdevice.h>
 #include <linux/ctype.h>
-#include <linux/etherdevice.h>
 #include <linux/ethtool.h>
 #include <linux/workqueue.h>
 #include <linux/mii.h>
@@ -53,7 +52,7 @@
 #include <linux/usb/cdc.h>
 #include <linux/usb/cdc_ncm.h>
 
-#if IS_ENABLED(CONFIG_USB_NET_CDC_MBIM)
+#if IS_ENABLED(CONFIG_BACKPORT_USB_NET_CDC_MBIM)
 static bool prefer_mbim = true;
 #else
 static bool prefer_mbim;
@@ -138,7 +137,9 @@ static const struct ethtool_ops cdc_ncm_ethtool_ops = {
 	.get_drvinfo       = usbnet_get_drvinfo,
 	.get_msglevel      = usbnet_get_msglevel,
 	.set_msglevel      = usbnet_set_msglevel,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 	.get_ts_info       = ethtool_op_get_ts_info,
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0) */
 	.get_sset_count    = cdc_ncm_get_sset_count,
 	.get_strings       = cdc_ncm_get_strings,
 	.get_ethtool_stats = cdc_ncm_get_ethtool_stats,
@@ -688,33 +689,6 @@ static void cdc_ncm_free(struct cdc_ncm_ctx *ctx)
 	kfree(ctx);
 }
 
-/* we need to override the usbnet change_mtu ndo for two reasons:
- *  - respect the negotiated maximum datagram size
- *  - avoid unwanted changes to rx and tx buffers
- */
-int cdc_ncm_change_mtu(struct net_device *net, int new_mtu)
-{
-	struct usbnet *dev = netdev_priv(net);
-	struct cdc_ncm_ctx *ctx = (struct cdc_ncm_ctx *)dev->data[0];
-	int maxmtu = ctx->max_datagram_size - cdc_ncm_eth_hlen(dev);
-
-	if (new_mtu <= 0 || new_mtu > maxmtu)
-		return -EINVAL;
-	net->mtu = new_mtu;
-	return 0;
-}
-EXPORT_SYMBOL_GPL(cdc_ncm_change_mtu);
-
-static const struct net_device_ops cdc_ncm_netdev_ops = {
-	.ndo_open	     = usbnet_open,
-	.ndo_stop	     = usbnet_stop,
-	.ndo_start_xmit	     = usbnet_start_xmit,
-	.ndo_tx_timeout	     = usbnet_tx_timeout,
-	.ndo_change_mtu	     = cdc_ncm_change_mtu,
-	.ndo_set_mac_address = eth_mac_addr,
-	.ndo_validate_addr   = eth_validate_addr,
-};
-
 int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf, u8 data_altsetting)
 {
 	const struct usb_cdc_union_desc *union_desc = NULL;
@@ -843,11 +817,7 @@ advance:
 
 	iface_no = ctx->data->cur_altsetting->desc.bInterfaceNumber;
 
-	/* Reset data interface. Some devices will not reset properly
-	 * unless they are configured first.  Toggle the altsetting to
-	 * force a reset
-	 */
-	usb_set_interface(dev->udev, iface_no, data_altsetting);
+	/* reset data interface */
 	temp = usb_set_interface(dev->udev, iface_no, 0);
 	if (temp) {
 		dev_dbg(&intf->dev, "set interface failed\n");
@@ -857,13 +827,6 @@ advance:
 	/* initialize basic device settings */
 	if (cdc_ncm_init(dev))
 		goto error2;
-
-	/* Some firmwares need a pause here or they will silently fail
-	 * to set up the interface properly.  This value was decided
-	 * empirically on a Sierra Wireless MC7455 running 02.08.02.00
-	 * firmware.
-	 */
-	usleep_range(10000, 20000);
 
 	/* configure data interface */
 	temp = usb_set_interface(dev->udev, iface_no, data_altsetting);
@@ -899,9 +862,6 @@ advance:
 
 	/* add our sysfs attrs */
 	dev->net->sysfs_groups[0] = &cdc_ncm_sysfs_attr_group;
-
-	/* must handle MTU changes */
-	dev->net->netdev_ops = &cdc_ncm_netdev_ops;
 
 	return 0;
 
@@ -1648,7 +1608,9 @@ static struct usb_driver cdc_ncm_driver = {
 	.resume = usbnet_resume,
 	.reset_resume =	usbnet_resume,
 	.supports_autosuspend = 1,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0))
 	.disable_hub_initiated_lpm = 1,
+#endif
 };
 
 module_usb_driver(cdc_ncm_driver);

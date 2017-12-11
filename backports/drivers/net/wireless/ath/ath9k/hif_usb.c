@@ -41,7 +41,6 @@ static struct usb_device_id ath9k_hif_usb_ids[] = {
 	{ USB_DEVICE(0x0cf3, 0xb002) }, /* Ubiquiti WifiStation */
 	{ USB_DEVICE(0x057c, 0x8403) }, /* AVM FRITZ!WLAN 11N v2 USB */
 	{ USB_DEVICE(0x0471, 0x209e) }, /* Philips (or NXP) PTA01 */
-	{ USB_DEVICE(0x1eda, 0x2315) }, /* AirTies */
 
 	{ USB_DEVICE(0x0cf3, 0x7015),
 	  .driver_info = AR9287_USB },  /* Atheros */
@@ -238,7 +237,7 @@ static inline void ath9k_skb_queue_complete(struct hif_device_usb *hif_dev,
 	struct sk_buff *skb;
 
 	while ((skb = __skb_dequeue(queue)) != NULL) {
-#ifdef CONFIG_ATH9K_HTC_DEBUGFS
+#ifdef CONFIG_BACKPORT_ATH9K_HTC_DEBUGFS
 		int ln = skb->len;
 #endif
 		ath9k_htc_txcompletion_cb(hif_dev->htc_handle,
@@ -1145,9 +1144,6 @@ static int send_eject_command(struct usb_interface *interface)
 	u8 bulk_out_ep;
 	int r;
 
-	if (iface_desc->desc.bNumEndpoints < 2)
-		return -ENODEV;
-
 	/* Find bulk out endpoint */
 	for (r = 1; r >= 0; r--) {
 		endpoint = &iface_desc->endpoint[r].desc;
@@ -1373,7 +1369,9 @@ static struct usb_driver ath9k_hif_usb_driver = {
 #endif
 	.id_table = ath9k_hif_usb_ids,
 	.soft_unbind = 1,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0))
 	.disable_hub_initiated_lpm = 1,
+#endif
 };
 
 int ath9k_hif_usb_init(void)

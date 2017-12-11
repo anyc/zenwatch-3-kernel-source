@@ -225,7 +225,7 @@ void iwl_mvm_set_tx_cmd_rate(struct iwl_mvm *mvm, struct iwl_tx_cmd *tx_cmd,
 
 	if (info->band == IEEE80211_BAND_2GHZ &&
 	    !iwl_mvm_bt_coex_is_shared_ant_avail(mvm))
-		rate_flags = mvm->cfg->non_shared_ant << RATE_MCS_ANT_POS;
+		rate_flags = BIT(mvm->cfg->non_shared_ant) << RATE_MCS_ANT_POS;
 	else
 		rate_flags =
 			BIT(mvm->mgmt_last_antenna_idx) << RATE_MCS_ANT_POS;
@@ -369,15 +369,6 @@ int iwl_mvm_tx_skb_non_sta(struct iwl_mvm *mvm, struct sk_buff *skb)
 		iwl_trans_free_tx_cmd(mvm->trans, dev_cmd);
 		return -1;
 	}
-
-	/*
-	 * Increase the pending frames counter, so that later when a reply comes
-	 * in and the counter is decreased - we don't start getting negative
-	 * values.
-	 * Note that we don't need to make sure it isn't agg'd, since we're
-	 * TXing non-sta
-	 */
-	atomic_inc(&mvm->pending_frames[sta_id]);
 
 	return 0;
 }
@@ -533,7 +524,7 @@ static void iwl_mvm_check_ratid_empty(struct iwl_mvm *mvm,
 	}
 }
 
-#ifdef CONFIG_IWLWIFI_DEBUG
+#ifdef CONFIG_BACKPORT_IWLWIFI_DEBUG
 const char *iwl_mvm_get_tx_fail_reason(u32 status)
 {
 #define TX_STATUS_FAIL(x) case TX_STATUS_FAIL_ ## x: return #x
@@ -571,7 +562,7 @@ const char *iwl_mvm_get_tx_fail_reason(u32 status)
 #undef TX_STATUS_FAIL
 #undef TX_STATUS_POSTPONE
 }
-#endif /* CONFIG_IWLWIFI_DEBUG */
+#endif /* CONFIG_BACKPORT_IWLWIFI_DEBUG */
 
 void iwl_mvm_hwrate_to_tx_rate(u32 rate_n_flags,
 			       enum ieee80211_band band,
@@ -812,7 +803,7 @@ out:
 	rcu_read_unlock();
 }
 
-#ifdef CONFIG_IWLWIFI_DEBUG
+#ifdef CONFIG_BACKPORT_IWLWIFI_DEBUG
 #define AGG_TX_STATE_(x) case AGG_TX_STATE_ ## x: return #x
 static const char *iwl_get_agg_tx_status(u16 status)
 {
@@ -858,7 +849,7 @@ static void iwl_mvm_rx_tx_cmd_agg_dbg(struct iwl_mvm *mvm,
 static void iwl_mvm_rx_tx_cmd_agg_dbg(struct iwl_mvm *mvm,
 				      struct iwl_rx_packet *pkt)
 {}
-#endif /* CONFIG_IWLWIFI_DEBUG */
+#endif /* CONFIG_BACKPORT_IWLWIFI_DEBUG */
 
 static void iwl_mvm_rx_tx_cmd_agg(struct iwl_mvm *mvm,
 				  struct iwl_rx_packet *pkt)

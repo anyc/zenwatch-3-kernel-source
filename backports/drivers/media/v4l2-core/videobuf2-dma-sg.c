@@ -109,7 +109,9 @@ static void *vb2_dma_sg_alloc(void *alloc_ctx, unsigned long size,
 	int num_pages;
 	DEFINE_DMA_ATTRS(attrs);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 	dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &attrs);
+#endif
 
 	if (WARN_ON(alloc_ctx == NULL))
 		return NULL;
@@ -184,7 +186,9 @@ static void vb2_dma_sg_put(void *buf_priv)
 	if (atomic_dec_and_test(&buf->refcount)) {
 		DEFINE_DMA_ATTRS(attrs);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 		dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &attrs);
+#endif
 		dprintk(1, "%s: Freeing buffer of %d pages\n", __func__,
 			buf->num_pages);
 		dma_unmap_sg_attrs(buf->dev, sgt->sgl, sgt->nents,
@@ -241,7 +245,9 @@ static void *vb2_dma_sg_get_userptr(void *alloc_ctx, unsigned long vaddr,
 	struct sg_table *sgt;
 	DEFINE_DMA_ATTRS(attrs);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 	dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &attrs);
+#endif
 
 	buf = kzalloc(sizeof *buf, GFP_KERNEL);
 	if (!buf)
@@ -347,7 +353,9 @@ static void vb2_dma_sg_put_userptr(void *buf_priv)
 	int i = buf->num_pages;
 	DEFINE_DMA_ATTRS(attrs);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 	dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &attrs);
+#endif
 
 	dprintk(1, "%s: Releasing userspace buffer of %d pages\n",
 	       __func__, buf->num_pages);
@@ -373,9 +381,11 @@ static void *vb2_dma_sg_vaddr(void *buf_priv)
 	BUG_ON(!buf);
 
 	if (!buf->vaddr) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 		if (buf->db_attach)
 			buf->vaddr = dma_buf_vmap(buf->db_attach->dmabuf);
 		else
+#endif
 			buf->vaddr = vm_map_ram(buf->pages,
 					buf->num_pages, -1, PAGE_KERNEL);
 	}
@@ -428,6 +438,7 @@ static int vb2_dma_sg_mmap(void *buf_priv, struct vm_area_struct *vma)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 /*********************************************/
 /*         DMABUF ops for exporters          */
 /*********************************************/
@@ -701,6 +712,7 @@ static void *vb2_dma_sg_attach_dmabuf(void *alloc_ctx, struct dma_buf *dbuf,
 
 	return buf;
 }
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0) */
 
 static void *vb2_dma_sg_cookie(void *buf_priv)
 {
@@ -719,11 +731,13 @@ const struct vb2_mem_ops vb2_dma_sg_memops = {
 	.vaddr		= vb2_dma_sg_vaddr,
 	.mmap		= vb2_dma_sg_mmap,
 	.num_users	= vb2_dma_sg_num_users,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 	.get_dmabuf	= vb2_dma_sg_get_dmabuf,
 	.map_dmabuf	= vb2_dma_sg_map_dmabuf,
 	.unmap_dmabuf	= vb2_dma_sg_unmap_dmabuf,
 	.attach_dmabuf	= vb2_dma_sg_attach_dmabuf,
 	.detach_dmabuf	= vb2_dma_sg_detach_dmabuf,
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0) */
 	.cookie		= vb2_dma_sg_cookie,
 };
 EXPORT_SYMBOL_GPL(vb2_dma_sg_memops);

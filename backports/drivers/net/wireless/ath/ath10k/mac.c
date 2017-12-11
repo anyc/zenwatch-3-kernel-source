@@ -2225,7 +2225,7 @@ static void ath10k_regd_update(struct ath10k *ar)
 
 	regpair = ar->ath_common.regulatory.regpair;
 
-	if (config_enabled(CONFIG_ATH10K_DFS_CERTIFIED) && ar->dfs_detector) {
+	if (config_enabled(CONFIG_BACKPORT_ATH10K_DFS_CERTIFIED) && ar->dfs_detector) {
 		nl_dfs_reg = ar->dfs_detector->region;
 		wmi_dfs_reg = ath10k_mac_get_dfs_region(nl_dfs_reg);
 	} else {
@@ -2254,7 +2254,7 @@ static void ath10k_reg_notifier(struct wiphy *wiphy,
 
 	ath_reg_notifier_apply(wiphy, request, &ar->ath_common.regulatory);
 
-	if (config_enabled(CONFIG_ATH10K_DFS_CERTIFIED) && ar->dfs_detector) {
+	if (config_enabled(CONFIG_BACKPORT_ATH10K_DFS_CERTIFIED) && ar->dfs_detector) {
 		ath10k_dbg(ar, ATH10K_DBG_REGULATORY, "dfs region 0x%x\n",
 			   request->dfs_region);
 		result = ar->dfs_detector->set_dfs_domain(ar->dfs_detector,
@@ -3183,7 +3183,7 @@ static int ath10k_config(struct ieee80211_hw *hw, u32 changed)
 
 static u32 get_nss_from_chainmask(u16 chain_mask)
 {
-	if ((chain_mask & 0xf) == 0xf)
+	if ((chain_mask & 0x15) == 0x15)
 		return 4;
 	else if ((chain_mask & 0x7) == 0x7)
 		return 3;
@@ -3329,10 +3329,7 @@ static int ath10k_add_interface(struct ieee80211_hw *hw,
 		goto err_vdev_delete;
 	}
 
-	/* Configuring number of spatial stream for monitor interface is causing
-	 * target assert in qca9888 and qca6174.
-	 */
-	if (ar->cfg_tx_chainmask && (vif->type != NL80211_IFTYPE_MONITOR)) {
+	if (ar->cfg_tx_chainmask) {
 		u16 nss = get_nss_from_chainmask(ar->cfg_tx_chainmask);
 
 		vdev_param = ar->wmi.vdev_param->nss;
@@ -4467,21 +4464,6 @@ static int ath10k_set_rts_threshold(struct ieee80211_hw *hw, u32 value)
 	return ret;
 }
 
-static int ath10k_mac_op_set_frag_threshold(struct ieee80211_hw *hw, u32 value)
-{
-	/* Even though there's a WMI enum for fragmentation threshold no known
-	 * firmware actually implements it. Moreover it is not possible to rely
-	 * frame fragmentation to mac80211 because firmware clears the "more
-	 * fragments" bit in frame control making it impossible for remote
-	 * devices to reassemble frames.
-	 *
-	 * Hence implement a dummy callback just to say fragmentation isn't
-	 * supported. This effectively prevents mac80211 from doing frame
-	 * fragmentation in software.
-	 */
-	return -EOPNOTSUPP;
-}
-
 static void ath10k_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			 u32 queues, bool drop)
 {
@@ -5126,7 +5108,6 @@ static const struct ieee80211_ops ath10k_ops = {
 	.remain_on_channel		= ath10k_remain_on_channel,
 	.cancel_remain_on_channel	= ath10k_cancel_remain_on_channel,
 	.set_rts_threshold		= ath10k_set_rts_threshold,
-	.set_frag_threshold		= ath10k_mac_op_set_frag_threshold,
 	.flush				= ath10k_flush,
 	.tx_last_beacon			= ath10k_tx_last_beacon,
 	.set_antenna			= ath10k_set_antenna,
@@ -5147,7 +5128,7 @@ static const struct ieee80211_ops ath10k_ops = {
 	.suspend			= ath10k_suspend,
 	.resume				= ath10k_resume,
 #endif
-#ifdef CONFIG_MAC80211_DEBUGFS
+#ifdef CONFIG_BACKPORT_MAC80211_DEBUGFS
 	.sta_add_debugfs		= ath10k_sta_add_debugfs,
 #endif
 };
@@ -5309,7 +5290,7 @@ static const struct ieee80211_iface_combination ath10k_10x_if_comb[] = {
 		.max_interfaces = 8,
 		.num_different_channels = 1,
 		.beacon_int_infra_match = true,
-#ifdef CONFIG_ATH10K_DFS_CERTIFIED
+#ifdef CONFIG_BACKPORT_ATH10K_DFS_CERTIFIED
 		.radar_detect_widths =	BIT(NL80211_CHAN_WIDTH_20_NOHT) |
 					BIT(NL80211_CHAN_WIDTH_20) |
 					BIT(NL80211_CHAN_WIDTH_40) |
@@ -5589,7 +5570,7 @@ int ath10k_mac_register(struct ath10k *ar)
 
 	ar->hw->netdev_features = NETIF_F_HW_CSUM;
 
-	if (config_enabled(CONFIG_ATH10K_DFS_CERTIFIED)) {
+	if (config_enabled(CONFIG_BACKPORT_ATH10K_DFS_CERTIFIED)) {
 		/* Init ath dfs pattern detector */
 		ar->ath_common.debug_mask = ATH_DBG_DFS;
 		ar->dfs_detector = dfs_pattern_detector_init(&ar->ath_common,
@@ -5637,7 +5618,7 @@ void ath10k_mac_unregister(struct ath10k *ar)
 {
 	ieee80211_unregister_hw(ar->hw);
 
-	if (config_enabled(CONFIG_ATH10K_DFS_CERTIFIED) && ar->dfs_detector)
+	if (config_enabled(CONFIG_BACKPORT_ATH10K_DFS_CERTIFIED) && ar->dfs_detector)
 		ar->dfs_detector->exit(ar->dfs_detector);
 
 	kfree(ar->mac.sbands[IEEE80211_BAND_2GHZ].channels);

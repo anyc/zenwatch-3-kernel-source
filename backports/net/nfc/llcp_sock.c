@@ -76,8 +76,7 @@ static int llcp_sock_bind(struct socket *sock, struct sockaddr *addr, int alen)
 	struct sockaddr_nfc_llcp llcp_addr;
 	int len, ret = 0;
 
-	if (!addr || alen < offsetofend(struct sockaddr, sa_family) ||
-	    addr->sa_family != AF_NFC)
+	if (!addr || addr->sa_family != AF_NFC)
 		return -EINVAL;
 
 	pr_debug("sk %p addr %p family %d\n", sk, addr, addr->sa_family);
@@ -151,8 +150,7 @@ static int llcp_raw_sock_bind(struct socket *sock, struct sockaddr *addr,
 	struct sockaddr_nfc_llcp llcp_addr;
 	int len, ret = 0;
 
-	if (!addr || alen < offsetofend(struct sockaddr, sa_family) ||
-	    addr->sa_family != AF_NFC)
+	if (!addr || addr->sa_family != AF_NFC)
 		return -EINVAL;
 
 	pr_debug("sk %p addr %p family %d\n", sk, addr, addr->sa_family);
@@ -657,7 +655,8 @@ static int llcp_sock_connect(struct socket *sock, struct sockaddr *_addr,
 
 	pr_debug("sock %p sk %p flags 0x%x\n", sock, sk, flags);
 
-	if (!addr || len < sizeof(*addr) || addr->sa_family != AF_NFC)
+	if (!addr || len < sizeof(struct sockaddr_nfc) ||
+	    addr->sa_family != AF_NFC)
 		return -EINVAL;
 
 	if (addr->service_name_len == 0 && addr->dsap == 0)
@@ -751,8 +750,13 @@ error:
 	return ret;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
 static int llcp_sock_sendmsg(struct socket *sock, struct msghdr *msg,
 			     size_t len)
+#else
+static int llcp_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
+			     struct msghdr *msg, size_t len)
+#endif
 {
 	struct sock *sk = sock->sk;
 	struct nfc_llcp_sock *llcp_sock = nfc_llcp_sock(sk);
@@ -794,8 +798,13 @@ static int llcp_sock_sendmsg(struct socket *sock, struct msghdr *msg,
 	return nfc_llcp_send_i_frame(llcp_sock, msg, len);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
 static int llcp_sock_recvmsg(struct socket *sock, struct msghdr *msg,
 			     size_t len, int flags)
+#else
+static int llcp_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
+			     struct msghdr *msg, size_t len, int flags)
+#endif
 {
 	int noblock = flags & MSG_DONTWAIT;
 	struct sock *sk = sock->sk;

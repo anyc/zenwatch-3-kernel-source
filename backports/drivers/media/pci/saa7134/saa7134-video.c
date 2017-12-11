@@ -1211,13 +1211,10 @@ static int saa7134_g_fmt_vid_cap(struct file *file, void *priv,
 	f->fmt.pix.height       = dev->height;
 	f->fmt.pix.field        = dev->field;
 	f->fmt.pix.pixelformat  = dev->fmt->fourcc;
-	if (dev->fmt->planar)
-		f->fmt.pix.bytesperline = f->fmt.pix.width;
-	else
-		f->fmt.pix.bytesperline =
-			(f->fmt.pix.width * dev->fmt->depth) / 8;
+	f->fmt.pix.bytesperline =
+		(f->fmt.pix.width * dev->fmt->depth) >> 3;
 	f->fmt.pix.sizeimage =
-		(f->fmt.pix.height * f->fmt.pix.width * dev->fmt->depth) / 8;
+		f->fmt.pix.height * f->fmt.pix.bytesperline;
 	f->fmt.pix.colorspace   = V4L2_COLORSPACE_SMPTE170M;
 	return 0;
 }
@@ -1293,13 +1290,10 @@ static int saa7134_try_fmt_vid_cap(struct file *file, void *priv,
 	if (f->fmt.pix.height > maxh)
 		f->fmt.pix.height = maxh;
 	f->fmt.pix.width &= ~0x03;
-	if (fmt->planar)
-		f->fmt.pix.bytesperline = f->fmt.pix.width;
-	else
-		f->fmt.pix.bytesperline =
-			(f->fmt.pix.width * fmt->depth) / 8;
+	f->fmt.pix.bytesperline =
+		(f->fmt.pix.width * fmt->depth) >> 3;
 	f->fmt.pix.sizeimage =
-		(f->fmt.pix.height * f->fmt.pix.width * fmt->depth) / 8;
+		f->fmt.pix.height * f->fmt.pix.bytesperline;
 	f->fmt.pix.colorspace   = V4L2_COLORSPACE_SMPTE170M;
 
 	return 0;
@@ -1823,7 +1817,7 @@ static int saa7134_overlay(struct file *file, void *priv, unsigned int on)
 	return 0;
 }
 
-#ifdef CONFIG_VIDEO_ADV_DEBUG
+#ifdef CONFIG_BACKPORT_VIDEO_ADV_DEBUG
 static int vidioc_g_register (struct file *file, void *priv,
 			      struct v4l2_dbg_register *reg)
 {
@@ -1921,7 +1915,7 @@ static const struct v4l2_ioctl_ops video_ioctl_ops = {
 	.vidioc_overlay			= saa7134_overlay,
 	.vidioc_g_frequency		= saa7134_g_frequency,
 	.vidioc_s_frequency		= saa7134_s_frequency,
-#ifdef CONFIG_VIDEO_ADV_DEBUG
+#ifdef CONFIG_BACKPORT_VIDEO_ADV_DEBUG
 	.vidioc_g_register              = vidioc_g_register,
 	.vidioc_s_register              = vidioc_s_register,
 #endif

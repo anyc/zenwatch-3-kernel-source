@@ -21,7 +21,6 @@
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-#include <linux/bitops.h>
 #include <linux/usb.h>
 #include <linux/i2c.h>
 #include <linux/i2c-algo-bit.h>
@@ -122,9 +121,9 @@ enum au0828_stream_state {
 
 /* device state */
 enum au0828_dev_state {
-	DEV_INITIALIZED = 0,
-	DEV_DISCONNECTED = 1,
-	DEV_MISCONFIGURED = 2
+	DEV_INITIALIZED = 0x01,
+	DEV_DISCONNECTED = 0x02,
+	DEV_MISCONFIGURED = 0x04
 };
 
 struct au0828_dev;
@@ -201,12 +200,12 @@ struct au0828_dev {
 	struct au0828_dvb		dvb;
 	struct work_struct              restart_streaming;
 
-#ifdef CONFIG_VIDEO_AU0828_V4L2
+#ifdef CONFIG_BACKPORT_VIDEO_AU0828_V4L2
 	/* Analog */
 	struct v4l2_device v4l2_dev;
 	struct v4l2_ctrl_handler v4l2_ctrl_hdl;
 #endif
-#ifdef CONFIG_VIDEO_AU0828_RC
+#ifdef CONFIG_BACKPORT_VIDEO_AU0828_RC
 	struct au0828_rc *ir;
 #endif
 
@@ -248,7 +247,7 @@ struct au0828_dev {
 	int input_type;
 	int std_set_in_tuner_core;
 	unsigned int ctrl_input;
-	long unsigned int dev_state; /* defined at enum au0828_dev_state */;
+	enum au0828_dev_state dev_state;
 	enum au0828_stream_state stream_state;
 	wait_queue_head_t open;
 
@@ -317,7 +316,7 @@ extern void au0828_analog_unregister(struct au0828_dev *dev);
 extern int au0828_start_analog_streaming(struct vb2_queue *vq,
 						unsigned int count);
 extern void au0828_stop_vbi_streaming(struct vb2_queue *vq);
-#ifdef CONFIG_VIDEO_AU0828_V4L2
+#ifdef CONFIG_BACKPORT_VIDEO_AU0828_V4L2
 extern void au0828_v4l2_suspend(struct au0828_dev *dev);
 extern void au0828_v4l2_resume(struct au0828_dev *dev);
 #else
@@ -341,7 +340,7 @@ extern struct vb2_ops au0828_vbi_qops;
 	} while (0)
 
 /* au0828-input.c */
-#ifdef CONFIG_VIDEO_AU0828_RC
+#ifdef CONFIG_BACKPORT_VIDEO_AU0828_RC
 extern int au0828_rc_register(struct au0828_dev *dev);
 extern void au0828_rc_unregister(struct au0828_dev *dev);
 extern int au0828_rc_suspend(struct au0828_dev *dev);

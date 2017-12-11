@@ -86,7 +86,12 @@ static struct attribute *video_device_attrs[] = {
 	&dev_attr_index.attr,
 	NULL,
 };
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,0)
 ATTRIBUTE_GROUPS(video_device);
+#else
+#define BP_ATTR_GRP_STRUCT device_attribute
+ATTRIBUTE_GROUPS_BACKPORT(video_device);
+#endif
 
 /*
  *	Active devices
@@ -100,7 +105,7 @@ static DECLARE_BITMAP(devnode_nums[VFL_TYPE_MAX], VIDEO_NUM_DEVICES);
 /* Note: these utility functions all assume that vfl_type is in the range
    [0, VFL_TYPE_MAX-1]. */
 
-#ifdef CONFIG_VIDEO_FIXED_MINOR_RANGES
+#ifdef CONFIG_BACKPORT_VIDEO_FIXED_MINOR_RANGES
 /* Return the bitmap corresponding to vfl_type. */
 static inline unsigned long *devnode_bits(int vfl_type)
 {
@@ -193,7 +198,7 @@ static void v4l2_device_release(struct device *cd)
 
 	mutex_unlock(&videodev_lock);
 
-#if defined(CONFIG_MEDIA_CONTROLLER)
+#if defined(CONFIG_BACKPORT_MEDIA_CONTROLLER)
 	if (v4l2_dev->mdev &&
 	    vdev->vfl_type != VFL_TYPE_SUBDEV)
 		media_device_unregister_entity(&vdev->entity);
@@ -221,7 +226,12 @@ static void v4l2_device_release(struct device *cd)
 
 static struct class video_class = {
 	.name = VIDEO_NAME,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,0)
 	.dev_groups = video_device_groups,
+#else
+	.dev_attrs = video_device_dev_attrs,
+#endif
+
 };
 
 struct video_device *video_devdata(struct file *file)
@@ -558,7 +568,7 @@ static void determine_valid_ioctls(struct video_device *vdev)
 	SET_VALID_IOCTL(ops, VIDIOC_G_FREQUENCY, vidioc_g_frequency);
 	SET_VALID_IOCTL(ops, VIDIOC_S_FREQUENCY, vidioc_s_frequency);
 	SET_VALID_IOCTL(ops, VIDIOC_LOG_STATUS, vidioc_log_status);
-#ifdef CONFIG_VIDEO_ADV_DEBUG
+#ifdef CONFIG_BACKPORT_VIDEO_ADV_DEBUG
 	set_bit(_IOC_NR(VIDIOC_DBG_G_CHIP_INFO), valid_ioctls);
 	set_bit(_IOC_NR(VIDIOC_DBG_G_REGISTER), valid_ioctls);
 	set_bit(_IOC_NR(VIDIOC_DBG_S_REGISTER), valid_ioctls);
@@ -807,7 +817,7 @@ int __video_register_device(struct video_device *vdev, int type, int nr,
 		vdev->prio = &vdev->v4l2_dev->prio;
 
 	/* Part 2: find a free minor, device node number and device index. */
-#ifdef CONFIG_VIDEO_FIXED_MINOR_RANGES
+#ifdef CONFIG_BACKPORT_VIDEO_FIXED_MINOR_RANGES
 	/* Keep the ranges for the first four types for historical
 	 * reasons.
 	 * Newer devices (not yet in place) should use the range
@@ -843,7 +853,7 @@ int __video_register_device(struct video_device *vdev, int type, int nr,
 		mutex_unlock(&videodev_lock);
 		return -ENFILE;
 	}
-#ifdef CONFIG_VIDEO_FIXED_MINOR_RANGES
+#ifdef CONFIG_BACKPORT_VIDEO_FIXED_MINOR_RANGES
 	/* 1-on-1 mapping of device node number to minor number */
 	i = nr;
 #else
@@ -908,7 +918,7 @@ int __video_register_device(struct video_device *vdev, int type, int nr,
 	/* Increase v4l2_device refcount */
 	v4l2_device_get(vdev->v4l2_dev);
 
-#if defined(CONFIG_MEDIA_CONTROLLER)
+#if defined(CONFIG_BACKPORT_MEDIA_CONTROLLER)
 	/* Part 5: Register the entity. */
 	if (vdev->v4l2_dev->mdev &&
 	    vdev->vfl_type != VFL_TYPE_SUBDEV) {
@@ -981,6 +991,7 @@ static int __init videodev_init(void)
 		return ret;
 	}
 
+	init_video_device_attrs();
 	ret = class_register(&video_class);
 	if (ret < 0) {
 		unregister_chrdev_region(dev, VIDEO_NUM_DEVICES);

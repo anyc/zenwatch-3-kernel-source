@@ -864,7 +864,9 @@ static const struct v4l2_ioctl_ops coda_ioctl_ops = {
 	.vidioc_querybuf	= v4l2_m2m_ioctl_querybuf,
 
 	.vidioc_qbuf		= coda_qbuf,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 	.vidioc_expbuf		= v4l2_m2m_ioctl_expbuf,
+#endif
 	.vidioc_dqbuf		= coda_dqbuf,
 	.vidioc_create_bufs	= v4l2_m2m_ioctl_create_bufs,
 
@@ -2100,12 +2102,14 @@ static int coda_probe(struct platform_device *pdev)
 
 	pdev_id = of_id ? of_id->data : platform_get_device_id(pdev);
 
-	if (of_id)
+	if (of_id) {
 		dev->devtype = of_id->data;
-	else if (pdev_id)
+	} else if (pdev_id) {
 		dev->devtype = &coda_devdata[pdev_id->driver_data];
-	else
-		return -EINVAL;
+	} else {
+		ret = -EINVAL;
+		goto err_v4l2_register;
+	}
 
 	spin_lock_init(&dev->irqlock);
 	INIT_LIST_HEAD(&dev->instances);

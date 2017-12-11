@@ -102,7 +102,7 @@ static int dvb_usbv2_i2c_exit(struct dvb_usb_device *d)
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_RC_CORE)
+#if IS_ENABLED(CONFIG_BACKPORT_RC_CORE)
 static void dvb_usb_read_remote_control(struct work_struct *work)
 {
 	struct dvb_usb_device *d = container_of(work,
@@ -402,7 +402,7 @@ skip_feed_stop:
 
 static void dvb_usbv2_media_device_register(struct dvb_usb_adapter *adap)
 {
-#ifdef CONFIG_MEDIA_CONTROLLER_DVB
+#ifdef CONFIG_BACKPORT_MEDIA_CONTROLLER_DVB
 	struct media_device *mdev;
 	struct dvb_usb_device *d = adap_to_d(adap);
 	struct usb_device *udev = d->udev;
@@ -438,7 +438,7 @@ static void dvb_usbv2_media_device_register(struct dvb_usb_adapter *adap)
 
 static void dvb_usbv2_media_device_unregister(struct dvb_usb_adapter *adap)
 {
-#ifdef CONFIG_MEDIA_CONTROLLER_DVB
+#ifdef CONFIG_BACKPORT_MEDIA_CONTROLLER_DVB
 
 	if (!adap->dvb_adap.mdev)
 		return;
@@ -1010,8 +1010,8 @@ EXPORT_SYMBOL(dvb_usbv2_probe);
 void dvb_usbv2_disconnect(struct usb_interface *intf)
 {
 	struct dvb_usb_device *d = usb_get_intfdata(intf);
-	const char *devname = kstrdup(dev_name(&d->udev->dev), GFP_KERNEL);
-	const char *drvname = d->name;
+	const char *name = d->name;
+	struct device dev = d->udev->dev;
 
 	dev_dbg(&d->udev->dev, "%s: bInterfaceNumber=%d\n", __func__,
 			intf->cur_altsetting->desc.bInterfaceNumber);
@@ -1021,9 +1021,8 @@ void dvb_usbv2_disconnect(struct usb_interface *intf)
 
 	dvb_usbv2_exit(d);
 
-	pr_info("%s: '%s:%s' successfully deinitialized and disconnected\n",
-		KBUILD_MODNAME, drvname, devname);
-	kfree(devname);
+	dev_info(&dev, "%s: '%s' successfully deinitialized and disconnected\n",
+			KBUILD_MODNAME, name);
 }
 EXPORT_SYMBOL(dvb_usbv2_disconnect);
 

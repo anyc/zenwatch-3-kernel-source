@@ -2,8 +2,9 @@
 # Broadcom device configuration
 #
 
-config NET_VENDOR_BROADCOM
+config BACKPORT_NET_VENDOR_BROADCOM
 	bool "Broadcom devices"
+	depends on !NET_VENDOR_BROADCOM
 	default y
 	depends on (SSB_POSSIBLE && HAS_DMA) || PCI || BCM63XX || \
 		   SIBYTE_SB1xxx_SOC
@@ -16,14 +17,15 @@ config NET_VENDOR_BROADCOM
 	  the questions regarding AMD chipsets. If you say Y, you will be asked
 	  for your specific chipset/driver in the following questions.
 
-if NET_VENDOR_BROADCOM
+if BACKPORT_NET_VENDOR_BROADCOM
 
-config B44
+config BACKPORT_B44
 	tristate "Broadcom 440x/47xx ethernet support"
-	depends on SSB_POSSIBLE && HAS_DMA
-	select SSB
-	select MII
-	select PHYLIB
+	depends on !B44
+	depends on BACKPORT_SSB_POSSIBLE && HAS_DMA
+	select BACKPORT_SSB
+	depends on MII
+	depends on PHYLIB
 	---help---
 	  If you have a network (Ethernet) controller of this type, say Y
 	  or M and read the Ethernet-HOWTO, available from
@@ -32,60 +34,71 @@ config B44
 	  To compile this driver as a module, choose M here. The module
 	  will be called b44.
 
-# Auto-select SSB PCI-HOST support, if possible
-config B44_PCI_AUTOSELECT
+# Auto-select BACKPORT_SSB PCI-HOST support, if possible
+config BACKPORT_B44_PCI_AUTOSELECT
 	bool
-	depends on B44 && SSB_PCIHOST_POSSIBLE
-	select SSB_PCIHOST
+	depends on !B44_PCI_AUTOSELECT
+	depends on BACKPORT_B44 && SSB_PCIHOST_POSSIBLE
+	select BACKPORT_SSB_PCIHOST
 	default y
 
-# Auto-select SSB PCICORE driver, if possible
-config B44_PCICORE_AUTOSELECT
+# Auto-select BACKPORT_SSB PCICORE driver, if possible
+config BACKPORT_B44_PCICORE_AUTOSELECT
 	bool
-	depends on B44 && SSB_DRIVER_PCICORE_POSSIBLE
-	select SSB_DRIVER_PCICORE
+	depends on !B44_PCICORE_AUTOSELECT
+	depends on BACKPORT_B44 && SSB_DRIVER_PCICORE_POSSIBLE
+	select BACKPORT_SSB_DRIVER_PCICORE
 	default y
 
-config B44_PCI
+config BACKPORT_B44_PCI
 	bool
-	depends on B44_PCI_AUTOSELECT && B44_PCICORE_AUTOSELECT
+	depends on !B44_PCI
+	depends on BACKPORT_B44_PCI_AUTOSELECT && BACKPORT_B44_PCICORE_AUTOSELECT
 	default y
 
-config BCM63XX_ENET
+config BACKPORT_BCM63XX_ENET
+	depends on n
 	tristate "Broadcom 63xx internal mac support"
+	depends on !BCM63XX_ENET
 	depends on BCM63XX
-	select MII
-	select PHYLIB
+	depends on MII
+	depends on PHYLIB
 	help
 	  This driver supports the ethernet MACs in the Broadcom 63xx
 	  MIPS chipset family (BCM63XX).
 
-config BCMGENET
+config BACKPORT_BCMGENET
+	depends on n
 	tristate "Broadcom GENET internal MAC support"
-	select MII
-	select PHYLIB
-	select FIXED_PHY
-	select BCM7XXX_PHY
+	depends on !BCMGENET
+	depends on MII
+	depends on PHYLIB
+	depends on FIXED_PHY
+	depends on BCM7XXX_PHY
 	help
 	  This driver supports the built-in Ethernet MACs found in the
 	  Broadcom BCM7xxx Set Top Box family chipset.
 
-config BNX2
+config BACKPORT_BNX2
+	depends on n
 	tristate "QLogic bnx2 support"
+	depends on !BNX2
 	depends on PCI
-	select CRC32
-	select FW_LOADER
+	depends on CRC32
+	depends on FW_LOADER
 	---help---
 	  This driver supports QLogic bnx2 gigabit Ethernet cards.
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called bnx2.  This is recommended.
 
-config CNIC
+config BACKPORT_CNIC
+	depends on n
 	tristate "QLogic CNIC support"
+	depends on !CNIC
 	depends on PCI && (IPV6 || IPV6=n)
-	select BNX2
-	select UIO
+	select BACKPORT_BNX2
+	depends on UIO
 	---help---
 	  This driver supports offload features of QLogic bnx2 gigabit
 	  Ethernet cards.
@@ -93,10 +106,12 @@ config CNIC
 	  To compile this driver as a module, choose M here: the module
 	  will be called cnic.  This is recommended.
 
-config SB1250_MAC
+config BACKPORT_SB1250_MAC
+	depends on n
 	tristate "SB1250 Gigabit Ethernet support"
+	depends on !SB1250_MAC
 	depends on SIBYTE_SB1xxx_SOC
-	select PHYLIB
+	depends on PHYLIB
 	---help---
 	  This driver supports Gigabit Ethernet interfaces based on the
 	  Broadcom SiByte family of System-On-a-Chip parts.  They include
@@ -106,59 +121,68 @@ config SB1250_MAC
 	  To compile this driver as a module, choose M here: the module
 	  will be called sb1250-mac.
 
-config TIGON3
+config BACKPORT_TIGON3
+	depends on n
 	tristate "Broadcom Tigon3 support"
+	depends on !TIGON3
 	depends on PCI
-	select PHYLIB
-	select HWMON
-	select PTP_1588_CLOCK
+	depends on PHYLIB
+	depends on HWMON
+	depends on PTP_1588_CLOCK
 	---help---
 	  This driver supports Broadcom Tigon3 based gigabit Ethernet cards.
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called tg3.  This is recommended.
 
-config BNX2X
+config BACKPORT_BNX2X
+	depends on n
 	tristate "Broadcom NetXtremeII 10Gb support"
+	depends on !BNX2X
 	depends on PCI
-	select PTP_1588_CLOCK
-	select FW_LOADER
-	select ZLIB_INFLATE
-	select LIBCRC32C
-	select MDIO
+	depends on PTP_1588_CLOCK
+	depends on FW_LOADER
+	depends on ZLIB_INFLATE
+	depends on LIBCRC32C
+	select BACKPORT_MDIO
 	---help---
 	  This driver supports Broadcom NetXtremeII 10 gigabit Ethernet cards.
 	  To compile this driver as a module, choose M here: the module
 	  will be called bnx2x.  This is recommended.
 
-config BNX2X_SRIOV
+config BACKPORT_BNX2X_SRIOV
 	bool "Broadcom 578xx and 57712 SR-IOV support"
-	depends on BNX2X && PCI_IOV
+	depends on !BNX2X_SRIOV
+	depends on BACKPORT_BNX2X && PCI_IOV
 	default y
 	---help---
 	  This configuration parameter enables Single Root Input Output
 	  Virtualization support in the 578xx and 57712 products. This
 	  allows for virtual function acceleration in virtual environments.
 
-config BGMAC
+config BACKPORT_BGMAC
+	depends on n
 	tristate "BCMA bus GBit core support"
-	depends on BCMA_HOST_SOC && HAS_DMA && (BCM47XX || ARCH_BCM_5301X)
-	select PHYLIB
+	depends on !BGMAC
+	depends on BACKPORT_BCMA_HOST_SOC && HAS_DMA && (BCM47XX || ARCH_BCM_5301X)
+	depends on PHYLIB
 	---help---
-	  This driver supports GBit MAC and BCM4706 GBit MAC cores on BCMA bus.
+	  This driver supports GBit MAC and BCM4706 GBit MAC cores on BACKPORT_BCMA bus.
 	  They can be found on BCM47xx SoCs and provide gigabit ethernet.
 	  In case of using this driver on BCM4706 it's also requires to enable
-	  BCMA_DRIVER_GMAC_CMN to make it work.
+	  BACKPORT_BCMA_DRIVER_GMAC_CMN to make it work.
 
-config SYSTEMPORT
+config BACKPORT_SYSTEMPORT
+	depends on n
 	tristate "Broadcom SYSTEMPORT internal MAC support"
+	depends on !SYSTEMPORT
 	depends on OF
-	select MII
-	select PHYLIB
-	select FIXED_PHY
+	depends on MII
+	depends on PHYLIB
+	depends on FIXED_PHY
 	help
 	  This driver supports the built-in Ethernet MACs found in the
 	  Broadcom BCM7xxx Set Top Box family chipset using an internal
 	  Ethernet switch.
 
-endif # NET_VENDOR_BROADCOM
+endif # BACKPORT_NET_VENDOR_BROADCOM

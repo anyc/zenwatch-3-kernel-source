@@ -761,7 +761,11 @@ static void ir_close(struct input_dev *idev)
 }
 
 /* class for /sys/class/rc */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
 static char *rc_devnode(struct device *dev, umode_t *mode)
+#else
+static char *rc_devnode(struct device *dev, mode_t *mode)
+#endif
 {
 	return kasprintf(GFP_KERNEL, "rc/%s", dev_name(dev));
 }
@@ -1190,6 +1194,9 @@ static void rc_dev_release(struct device *device)
 static int rc_dev_uevent(struct device *device, struct kobj_uevent_env *env)
 {
 	struct rc_dev *dev = to_rc_dev(device);
+
+	if (!dev || !dev->input_dev)
+		return -ENODEV;
 
 	if (dev->rc_map.name)
 		ADD_HOTPLUG_VAR("NAME=%s", dev->rc_map.name);

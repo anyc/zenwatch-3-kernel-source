@@ -60,7 +60,7 @@ MODULE_PARM_DESC(debug, "level of debug output");
 
 /* P2P0 enable */
 static int brcmf_p2p_enable;
-#ifdef CONFIG_BRCMDBG
+#ifdef CONFIG_BACKPORT_BRCMDBG
 module_param_named(p2pon, brcmf_p2p_enable, int, 0);
 MODULE_PARM_DESC(p2pon, "enable p2p management functionality");
 #endif
@@ -192,7 +192,7 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
 	int ret;
 	struct brcmf_if *ifp = netdev_priv(ndev);
 	struct brcmf_pub *drvr = ifp->drvr;
-	struct ethhdr *eh;
+	struct ethhdr *eh = (struct ethhdr *)(skb->data);
 
 	brcmf_dbg(DATA, "Enter, idx=%d\n", ifp->bssidx);
 
@@ -213,13 +213,22 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
 		goto done;
 	}
 
-	/* Make sure there's enough writable headroom*/
-	ret = skb_cow_head(skb, drvr->hdrlen);
-	if (ret < 0) {
-		brcmf_err("%s: skb_cow_head failed\n",
+	/* Make sure there's enough room for any header */
+	if (skb_headroom(skb) < drvr->hdrlen) {
+		struct sk_buff *skb2;
+
+		brcmf_dbg(INFO, "%s: insufficient headroom\n",
 			  brcmf_ifname(drvr, ifp->bssidx));
+		drvr->bus_if->tx_realloc++;
+		skb2 = skb_realloc_headroom(skb, drvr->hdrlen);
 		dev_kfree_skb(skb);
-		goto done;
+		skb = skb2;
+		if (skb == NULL) {
+			brcmf_err("%s: skb_realloc_headroom failed\n",
+				  brcmf_ifname(drvr, ifp->bssidx));
+			ret = -ENOMEM;
+			goto done;
+		}
 	}
 
 	/* validate length for ether packet */
@@ -228,8 +237,6 @@ static netdev_tx_t brcmf_netdev_start_xmit(struct sk_buff *skb,
 		dev_kfree_skb(skb);
 		goto done;
 	}
-
-	eh = (struct ethhdr *)(skb->data);
 
 	if (eh->h_proto == htons(ETH_P_PAE))
 		atomic_inc(&ifp->pend_8021x_cnt);
@@ -1162,13 +1169,13 @@ void brcmf_bus_change_state(struct brcmf_bus *bus, enum brcmf_bus_state state)
 
 static void brcmf_driver_register(struct work_struct *work)
 {
-#ifdef CONFIG_BRCMFMAC_SDIO
+#ifdef CONFIG_BACKPORT_BRCMFMAC_SDIO
 	brcmf_sdio_register();
 #endif
-#ifdef CONFIG_BRCMFMAC_USB
+#ifdef CONFIG_BACKPORT_BRCMFMAC_USB
 	brcmf_usb_register();
 #endif
-#ifdef CONFIG_BRCMFMAC_PCIE
+#ifdef CONFIG_BACKPORT_BRCMFMAC_PCIE
 	brcmf_pcie_register();
 #endif
 }
@@ -1177,7 +1184,7 @@ static DECLARE_WORK(brcmf_driver_work, brcmf_driver_register);
 static int __init brcmfmac_module_init(void)
 {
 	brcmf_debugfs_init();
-#ifdef CONFIG_BRCMFMAC_SDIO
+#ifdef CONFIG_BACKPORT_BRCMFMAC_SDIO
 	brcmf_sdio_init();
 #endif
 	if (!schedule_work(&brcmf_driver_work))
@@ -1190,13 +1197,13 @@ static void __exit brcmfmac_module_exit(void)
 {
 	cancel_work_sync(&brcmf_driver_work);
 
-#ifdef CONFIG_BRCMFMAC_SDIO
+#ifdef CONFIG_BACKPORT_BRCMFMAC_SDIO
 	brcmf_sdio_exit();
 #endif
-#ifdef CONFIG_BRCMFMAC_USB
+#ifdef CONFIG_BACKPORT_BRCMFMAC_USB
 	brcmf_usb_exit();
 #endif
-#ifdef CONFIG_BRCMFMAC_PCIE
+#ifdef CONFIG_BACKPORT_BRCMFMAC_PCIE
 	brcmf_pcie_exit();
 #endif
 	brcmf_debugfs_exit();

@@ -2555,7 +2555,15 @@ static void atl1e_io_resume(struct pci_dev *pdev)
 	netif_device_attach(netdev);
 }
 
-static const struct pci_error_handlers atl1e_err_handler = {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+static 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+const 
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0) */
+struct pci_error_handlers atl1e_err_handler = {
+#else
+static struct pci_error_handlers atl1e_err_handler = {
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0) */
 	.error_detected = atl1e_io_error_detected,
 	.slot_reset = atl1e_io_slot_reset,
 	.resume = atl1e_io_resume,

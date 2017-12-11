@@ -980,10 +980,7 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata,
 	if (sdata->vif.txq) {
 		struct txq_info *txqi = to_txq_info(sdata->vif.txq);
 
-		spin_lock_bh(&txqi->queue.lock);
 		ieee80211_purge_tx_queue(&local->hw, &txqi->queue);
-		spin_unlock_bh(&txqi->queue.lock);
-
 		atomic_set(&sdata->txqs_len[txqi->txq.ac], 0);
 	}
 
@@ -1112,10 +1109,20 @@ static void ieee80211_uninit(struct net_device *dev)
 	ieee80211_teardown_sdata(IEEE80211_DEV_TO_SUB_IF(dev));
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0) || \
+    (LINUX_VERSION_CODE == KERNEL_VERSION(3,13,11) && UTS_UBUNTU_RELEASE_ABI > 30)
 static u16 ieee80211_netdev_select_queue(struct net_device *dev,
 					 struct sk_buff *skb,
 					 void *accel_priv,
 					 select_queue_fallback_t fallback)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,13,0)
+static u16 ieee80211_netdev_select_queue(struct net_device *dev,
+					 struct sk_buff *skb,
+					 void *accel_priv)
+#else
+static u16 ieee80211_netdev_select_queue(struct net_device *dev,
+					 struct sk_buff *skb)
+#endif
 {
 	return ieee80211_select_queue(IEEE80211_DEV_TO_SUB_IF(dev), skb);
 }
@@ -1131,10 +1138,20 @@ static const struct net_device_ops ieee80211_dataif_ops = {
 	.ndo_select_queue	= ieee80211_netdev_select_queue,
 };
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,14,0) || \
+    (LINUX_VERSION_CODE == KERNEL_VERSION(3,13,11) && UTS_UBUNTU_RELEASE_ABI > 30)
 static u16 ieee80211_monitor_select_queue(struct net_device *dev,
 					  struct sk_buff *skb,
 					  void *accel_priv,
 					  select_queue_fallback_t fallback)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,13,0)
+static u16 ieee80211_monitor_select_queue(struct net_device *dev,
+					  struct sk_buff *skb,
+					  void *accel_priv)
+#else
+static u16 ieee80211_monitor_select_queue(struct net_device *dev,
+					  struct sk_buff *skb)
+#endif
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	struct ieee80211_local *local = sdata->local;

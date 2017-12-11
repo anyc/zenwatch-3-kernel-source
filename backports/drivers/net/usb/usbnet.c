@@ -778,7 +778,7 @@ int usbnet_stop (struct net_device *net)
 {
 	struct usbnet		*dev = netdev_priv(net);
 	struct driver_info	*info = dev->driver_info;
-	int			retval, pm, mpn;
+	int			retval, pm;
 
 	clear_bit(EVENT_DEV_OPEN, &dev->flags);
 	netif_stop_queue (net);
@@ -809,8 +809,6 @@ int usbnet_stop (struct net_device *net)
 
 	usbnet_purge_paused_rxq(dev);
 
-	mpn = !test_and_clear_bit(EVENT_NO_RUNTIME_PM, &dev->flags);
-
 	/* deferred work (task, timer, softirq) must also stop.
 	 * can't flush_scheduled_work() until we drop rtnl (later),
 	 * else workers could deadlock; so make workers a NOP.
@@ -821,7 +819,8 @@ int usbnet_stop (struct net_device *net)
 	if (!pm)
 		usb_autopm_put_interface(dev->intf);
 
-	if (info->manage_power && mpn)
+	if (info->manage_power &&
+	    !test_and_clear_bit(EVENT_NO_RUNTIME_PM, &dev->flags))
 		info->manage_power(dev, 0);
 	else
 		usb_autopm_put_interface(dev->intf);
@@ -1023,7 +1022,9 @@ static const struct ethtool_ops usbnet_ethtool_ops = {
 	.get_drvinfo		= usbnet_get_drvinfo,
 	.get_msglevel		= usbnet_get_msglevel,
 	.set_msglevel		= usbnet_set_msglevel,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
 	.get_ts_info		= ethtool_op_get_ts_info,
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0) */
 };
 
 /*-------------------------------------------------------------------------*/
@@ -1249,6 +1250,7 @@ EXPORT_SYMBOL_GPL(usbnet_tx_timeout);
 
 /*-------------------------------------------------------------------------*/
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,35,0)
 static int build_dma_sg(const struct sk_buff *skb, struct urb *urb)
 {
 	unsigned num_sgs, total_len = 0;
@@ -1281,6 +1283,12 @@ static int build_dma_sg(const struct sk_buff *skb, struct urb *urb)
 
 	return 1;
 }
+#else
+static int build_dma_sg(const struct sk_buff *skb, struct urb *urb)
+{
+	return -ENXIO;
+}
+#endif
 
 netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
 				     struct net_device *net)
@@ -1337,12 +1345,19 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
 		if (!(info->flags & FLAG_SEND_ZLP)) {
 			if (!(info->flags & FLAG_MULTI_PACKET)) {
 				length++;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,35,0)
 				if (skb_tailroom(skb) && !urb->num_sgs) {
 					skb->data[skb->len] = 0;
 					__skb_put(skb, 1);
 				} else if (urb->num_sgs)
 					sg_set_buf(&urb->sg[urb->num_sgs++],
 							dev->padding_pkt, 1);
+#else
+				if (skb_tailroom(skb)) {
+					skb->data[skb->len] = 0;
+					__skb_put(skb, 1);
+				}
+#endif
 			}
 		} else
 			urb->transfer_flags |= URB_ZERO_PACKET;
@@ -1409,7 +1424,9 @@ not_drop:
 		if (skb)
 			dev_kfree_skb_any (skb);
 		if (urb) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,35,0)
 			kfree(urb->sg);
+#endif
 			usb_free_urb(urb);
 		}
 	} else
@@ -1462,7 +1479,9 @@ static void usbnet_bh (unsigned long param)
 			rx_process (dev, skb);
 			continue;
 		case tx_done:
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,35,0)
 			kfree(entry->urb->sg);
+#endif
 		case rx_cleanup:
 			usb_free_urb (entry->urb);
 			dev_kfree_skb (skb);
@@ -1754,13 +1773,6 @@ out3:
 	if (info->unbind)
 		info->unbind (dev, udev);
 out1:
-	/* subdrivers must undo all they did in bind() if they
-	 * fail it, but we may fail later and a deferred kevent
-	 * may trigger an error resubmitting itself and, worse,
-	 * schedule a timer. So we kill it all just in case.
-	 */
-	cancel_work_sync(&dev->kevent);
-	del_timer_sync(&dev->delay);
 	free_netdev(net);
 out:
 	return status;
@@ -1825,7 +1837,9 @@ int usbnet_resume (struct usb_interface *intf)
 			retval = usb_submit_urb(res, GFP_ATOMIC);
 			if (retval < 0) {
 				dev_kfree_skb_any(skb);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,35,0)
 				kfree(res->sg);
+#endif
 				usb_free_urb(res);
 				usb_autopm_put_interface_async(dev->intf);
 			} else {

@@ -741,11 +741,10 @@ static int hci_sock_bind(struct socket *sock, struct sockaddr *addr,
 			goto done;
 		}
 
-		if (test_bit(HCI_INIT, &hdev->flags) ||
+		if (test_bit(HCI_UP, &hdev->flags) ||
+		    test_bit(HCI_INIT, &hdev->flags) ||
 		    hci_dev_test_flag(hdev, HCI_SETUP) ||
-		    hci_dev_test_flag(hdev, HCI_CONFIG) ||
-		    (!hci_dev_test_flag(hdev, HCI_AUTO_OFF) &&
-		     test_bit(HCI_UP, &hdev->flags))) {
+		    hci_dev_test_flag(hdev, HCI_CONFIG)) {
 			err = -EBUSY;
 			hci_dev_put(hdev);
 			goto done;
@@ -761,21 +760,10 @@ static int hci_sock_bind(struct socket *sock, struct sockaddr *addr,
 
 		err = hci_dev_open(hdev->id);
 		if (err) {
-			if (err == -EALREADY) {
-				/* In case the transport is already up and
-				 * running, clear the error here.
-				 *
-				 * This can happen when opening an user
-				 * channel and HCI_AUTO_OFF grace period
-				 * is still active.
-				 */
-				err = 0;
-			} else {
-				hci_dev_clear_flag(hdev, HCI_USER_CHANNEL);
-				mgmt_index_added(hdev);
-				hci_dev_put(hdev);
-				goto done;
-			}
+			hci_dev_clear_flag(hdev, HCI_USER_CHANNEL);
+			mgmt_index_added(hdev);
+			hci_dev_put(hdev);
+			goto done;
 		}
 
 		atomic_inc(&hdev->promisc);
@@ -918,8 +906,13 @@ static void hci_sock_cmsg(struct sock *sk, struct msghdr *msg,
 	}
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
 static int hci_sock_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
 			    int flags)
+#else
+static int hci_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
+			    struct msghdr *msg, size_t len, int flags)
+#endif
 {
 	int noblock = flags & MSG_DONTWAIT;
 	struct sock *sk = sock->sk;
@@ -1077,8 +1070,13 @@ done:
 	return err;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
 static int hci_sock_sendmsg(struct socket *sock, struct msghdr *msg,
 			    size_t len)
+#else
+static int hci_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
+			    struct msghdr *msg, size_t len)
+#endif
 {
 	struct sock *sk = sock->sk;
 	struct hci_mgmt_chan *chan;
@@ -1091,8 +1089,7 @@ static int hci_sock_sendmsg(struct socket *sock, struct msghdr *msg,
 	if (msg->msg_flags & MSG_OOB)
 		return -EOPNOTSUPP;
 
-	if (msg->msg_flags & ~(MSG_DONTWAIT|MSG_NOSIGNAL|MSG_ERRQUEUE|
-			       MSG_CMSG_COMPAT))
+	if (msg->msg_flags & ~(MSG_DONTWAIT|MSG_NOSIGNAL|MSG_ERRQUEUE))
 		return -EINVAL;
 
 	if (len < 4 || len > HCI_MAX_FRAME_SIZE)

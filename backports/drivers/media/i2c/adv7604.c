@@ -628,7 +628,7 @@ static inline int vdp_write(struct v4l2_subdev *sd, u8 reg, u8 val)
 #define ADV76XX_REG(page, offset)	(((page) << 8) | (offset))
 #define ADV76XX_REG_SEQ_TERM		0xffff
 
-#ifdef CONFIG_VIDEO_ADV_DEBUG
+#ifdef CONFIG_BACKPORT_VIDEO_ADV_DEBUG
 static int adv76xx_read_reg(struct v4l2_subdev *sd, unsigned int reg)
 {
 	struct adv76xx_state *state = to_state(sd);
@@ -774,7 +774,7 @@ static inline bool is_digital_input(struct v4l2_subdev *sd)
 
 /* ----------------------------------------------------------------------- */
 
-#ifdef CONFIG_VIDEO_ADV_DEBUG
+#ifdef CONFIG_BACKPORT_VIDEO_ADV_DEBUG
 static void adv76xx_inv_register(struct v4l2_subdev *sd)
 {
 	v4l2_info(sd, "0x000-0x0ff: IO Map\n");
@@ -1911,9 +1911,10 @@ static int adv76xx_isr(struct v4l2_subdev *sd, u32 status, bool *handled)
 	}
 
 	/* tx 5v detect */
-	tx_5v = irq_reg_0x70 & info->cable_det_mask;
+	tx_5v = io_read(sd, 0x70) & info->cable_det_mask;
 	if (tx_5v) {
 		v4l2_dbg(1, debug, sd, "%s: tx_5v: 0x%x\n", __func__, tx_5v);
+		io_write(sd, 0x71, tx_5v);
 		adv76xx_s_detect_tx_5v_ctrl(sd);
 		if (handled)
 			*handled = true;
@@ -2291,7 +2292,7 @@ static const struct v4l2_ctrl_ops adv76xx_ctrl_ops = {
 static const struct v4l2_subdev_core_ops adv76xx_core_ops = {
 	.log_status = adv76xx_log_status,
 	.interrupt_service_routine = adv76xx_isr,
-#ifdef CONFIG_VIDEO_ADV_DEBUG
+#ifdef CONFIG_BACKPORT_VIDEO_ADV_DEBUG
 	.g_register = adv76xx_g_register,
 	.s_register = adv76xx_s_register,
 #endif
@@ -2669,9 +2670,6 @@ static int adv76xx_parse_dt(struct adv76xx_state *state)
 	state->pdata.alt_data_sat = 1;
 	state->pdata.op_format_mode_sel = ADV7604_OP_FORMAT_MODE0;
 	state->pdata.bus_order = ADV7604_BUS_ORDER_RGB;
-	state->pdata.dr_str_data = ADV76XX_DR_STR_MEDIUM_HIGH;
-	state->pdata.dr_str_clk = ADV76XX_DR_STR_MEDIUM_HIGH;
-	state->pdata.dr_str_sync = ADV76XX_DR_STR_MEDIUM_HIGH;
 
 	return 0;
 }

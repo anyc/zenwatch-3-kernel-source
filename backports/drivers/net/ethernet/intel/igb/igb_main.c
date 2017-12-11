@@ -50,7 +50,7 @@
 #include <linux/aer.h>
 #include <linux/prefetch.h>
 #include <linux/pm_runtime.h>
-#ifdef CONFIG_IGB_DCA
+#ifdef CONFIG_BACKPORT_IGB_DCA
 #include <linux/dca.h>
 #endif
 #include <linux/i2c.h>
@@ -145,10 +145,10 @@ static irqreturn_t igb_intr(int irq, void *);
 static irqreturn_t igb_intr_msi(int irq, void *);
 static irqreturn_t igb_msix_other(int irq, void *);
 static irqreturn_t igb_msix_ring(int irq, void *);
-#ifdef CONFIG_IGB_DCA
+#ifdef CONFIG_BACKPORT_IGB_DCA
 static void igb_update_dca(struct igb_q_vector *);
 static void igb_setup_dca(struct igb_adapter *);
-#endif /* CONFIG_IGB_DCA */
+#endif /* CONFIG_BACKPORT_IGB_DCA */
 static int igb_poll(struct napi_struct *, int);
 static bool igb_clean_tx_irq(struct igb_q_vector *);
 static bool igb_clean_rx_irq(struct igb_q_vector *, int);
@@ -157,8 +157,16 @@ static void igb_tx_timeout(struct net_device *);
 static void igb_reset_task(struct work_struct *);
 static void igb_vlan_mode(struct net_device *netdev,
 			  netdev_features_t features);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 static int igb_vlan_rx_add_vid(struct net_device *, __be16, u16);
 static int igb_vlan_rx_kill_vid(struct net_device *, __be16, u16);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
+static int igb_vlan_rx_add_vid(struct net_device *, u16);
+static int igb_vlan_rx_kill_vid(struct net_device *, u16);
+#else
+static void igb_vlan_rx_add_vid(struct net_device *, u16);
+static void igb_vlan_rx_kill_vid(struct net_device *, u16);
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0) */
 static void igb_restore_vlan(struct igb_adapter *);
 static void igb_rar_set_qsel(struct igb_adapter *, u8 *, u32 , u8);
 static void igb_ping_all_vfs(struct igb_adapter *);
@@ -169,9 +177,17 @@ static void igb_restore_vf_multicasts(struct igb_adapter *adapter);
 static int igb_ndo_set_vf_mac(struct net_device *netdev, int vf, u8 *mac);
 static int igb_ndo_set_vf_vlan(struct net_device *netdev,
 			       int vf, u16 vlan, u8 qos);
-static int igb_ndo_set_vf_bw(struct net_device *, int, int, int);
+static int igb_ndo_set_vf_bw(struct net_device *, int
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
+			     , int, int
+#else
+			     , int
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0) */
+);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)
 static int igb_ndo_set_vf_spoofchk(struct net_device *netdev, int vf,
 				   bool setting);
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0) */
 static int igb_ndo_get_vf_config(struct net_device *netdev, int vf,
 				 struct ifla_vf_info *ivi);
 static void igb_check_vf_rate_limit(struct igb_adapter *);
@@ -196,8 +212,10 @@ static const struct dev_pm_ops igb_pm_ops = {
 };
 #endif
 static void igb_shutdown(struct pci_dev *);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0)
 static int igb_pci_sriov_configure(struct pci_dev *dev, int num_vfs);
-#ifdef CONFIG_IGB_DCA
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0) */
+#ifdef CONFIG_BACKPORT_IGB_DCA
 static int igb_notify_dca(struct notifier_block *, unsigned long, void *);
 static struct notifier_block dca_notifier = {
 	.notifier_call	= igb_notify_dca,
@@ -220,7 +238,11 @@ static pci_ers_result_t igb_io_error_detected(struct pci_dev *,
 static pci_ers_result_t igb_io_slot_reset(struct pci_dev *);
 static void igb_io_resume(struct pci_dev *);
 
-static const struct pci_error_handlers igb_err_handler = {
+static 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+const 
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0) */
+struct pci_error_handlers igb_err_handler = {
 	.error_detected = igb_io_error_detected,
 	.slot_reset = igb_io_slot_reset,
 	.resume = igb_io_resume,
@@ -237,7 +259,9 @@ static struct pci_driver igb_driver = {
 	.driver.pm = &igb_pm_ops,
 #endif
 	.shutdown = igb_shutdown,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0)
 	.sriov_configure = igb_pci_sriov_configure,
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0) */
 	.err_handler = &igb_err_handler
 };
 
@@ -674,7 +698,7 @@ static int __init igb_init_module(void)
 	       igb_driver_string, igb_driver_version);
 	pr_info("%s\n", igb_copyright);
 
-#ifdef CONFIG_IGB_DCA
+#ifdef CONFIG_BACKPORT_IGB_DCA
 	dca_register_notify(&dca_notifier);
 #endif
 	ret = pci_register_driver(&igb_driver);
@@ -691,7 +715,7 @@ module_init(igb_init_module);
  **/
 static void __exit igb_exit_module(void)
 {
-#ifdef CONFIG_IGB_DCA
+#ifdef CONFIG_BACKPORT_IGB_DCA
 	dca_unregister_notify(&dca_notifier);
 #endif
 	pci_unregister_driver(&igb_driver);
@@ -1205,14 +1229,10 @@ static int igb_alloc_q_vector(struct igb_adapter *adapter,
 
 	/* allocate q_vector and rings */
 	q_vector = adapter->q_vector[v_idx];
-	if (!q_vector) {
+	if (!q_vector)
 		q_vector = kzalloc(size, GFP_KERNEL);
-	} else if (size > ksize(q_vector)) {
-		kfree_rcu(q_vector, rcu);
-		q_vector = kzalloc(size, GFP_KERNEL);
-	} else {
+	else
 		memset(q_vector, 0, size);
-	}
 	if (!q_vector)
 		return -ENOMEM;
 
@@ -1819,7 +1839,7 @@ void igb_down(struct igb_adapter *adapter)
 		igb_reset(adapter);
 	igb_clean_all_tx_rings(adapter);
 	igb_clean_all_rx_rings(adapter);
-#ifdef CONFIG_IGB_DCA
+#ifdef CONFIG_BACKPORT_IGB_DCA
 
 	/* since we reset the hardware DCA settings were cleared */
 	igb_setup_dca(adapter);
@@ -1999,7 +2019,7 @@ void igb_reset(struct igb_adapter *adapter)
 		igb_force_mac_fc(hw);
 
 	igb_init_dmac(adapter, pba);
-#ifdef CONFIG_IGB_HWMON
+#ifdef CONFIG_BACKPORT_IGB_HWMON
 	/* Re-initialize the thermal sensor on i350 devices. */
 	if (!test_bit(__IGB_DOWN, &adapter->state)) {
 		if (mac->type == e1000_i350 && hw->bus.func == 0) {
@@ -2091,15 +2111,24 @@ static const struct net_device_ops igb_netdev_ops = {
 	.ndo_vlan_rx_kill_vid	= igb_vlan_rx_kill_vid,
 	.ndo_set_vf_mac		= igb_ndo_set_vf_mac,
 	.ndo_set_vf_vlan	= igb_ndo_set_vf_vlan,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
 	.ndo_set_vf_rate	= igb_ndo_set_vf_bw,
+#else
+	.ndo_set_vf_tx_rate = igb_ndo_set_vf_bw,
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0) */
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)
 	.ndo_set_vf_spoofchk	= igb_ndo_set_vf_spoofchk,
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0) */
 	.ndo_get_vf_config	= igb_ndo_get_vf_config,
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	.ndo_poll_controller	= igb_netpoll,
 #endif
 	.ndo_fix_features	= igb_fix_features,
 	.ndo_set_features	= igb_set_features,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)
 	.ndo_features_check	= passthru_features_check,
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0) */
 };
 
 /**
@@ -2551,7 +2580,7 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	/* carrier off reporting is important to ethtool even BEFORE open */
 	netif_carrier_off(netdev);
 
-#ifdef CONFIG_IGB_DCA
+#ifdef CONFIG_BACKPORT_IGB_DCA
 	if (dca_add_requester(&pdev->dev) == 0) {
 		adapter->flags |= IGB_FLAG_DCA_ENABLED;
 		dev_info(&pdev->dev, "DCA enabled\n");
@@ -2559,7 +2588,7 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 
 #endif
-#ifdef CONFIG_IGB_HWMON
+#ifdef CONFIG_BACKPORT_IGB_HWMON
 	/* Initialize the thermal sensor on i350 devices. */
 	if (hw->mac.type == e1000_i350 && hw->bus.func == 0) {
 		u16 ets_word;
@@ -2793,7 +2822,7 @@ static void igb_remove(struct pci_dev *pdev)
 	struct e1000_hw *hw = &adapter->hw;
 
 	pm_runtime_get_noresume(&pdev->dev);
-#ifdef CONFIG_IGB_HWMON
+#ifdef CONFIG_BACKPORT_IGB_HWMON
 	igb_sysfs_exit(adapter);
 #endif
 	igb_remove_i2c(adapter);
@@ -2808,7 +2837,7 @@ static void igb_remove(struct pci_dev *pdev)
 	cancel_work_sync(&adapter->reset_task);
 	cancel_work_sync(&adapter->watchdog_task);
 
-#ifdef CONFIG_IGB_DCA
+#ifdef CONFIG_BACKPORT_IGB_DCA
 	if (adapter->flags & IGB_FLAG_DCA_ENABLED) {
 		dev_info(&pdev->dev, "DCA disabled\n");
 		dca_remove_requester(&pdev->dev);
@@ -2864,7 +2893,7 @@ static void igb_probe_vfs(struct igb_adapter *adapter)
 		return;
 
 	pci_sriov_set_totalvfs(pdev, 7);
-	igb_enable_sriov(pdev, max_vfs);
+	igb_pci_enable_sriov(pdev, max_vfs);
 
 #endif /* CONFIG_PCI_IOV */
 }
@@ -2904,14 +2933,6 @@ static void igb_init_queue_configuration(struct igb_adapter *adapter)
 	}
 
 	adapter->rss_queues = min_t(u32, max_rss_queues, num_online_cpus());
-
-	igb_set_flag_queue_pairs(adapter, max_rss_queues);
-}
-
-void igb_set_flag_queue_pairs(struct igb_adapter *adapter,
-			      const u32 max_rss_queues)
-{
-	struct e1000_hw *hw = &adapter->hw;
 
 	/* Determine if we need to pair queues. */
 	switch (hw->mac.type) {
@@ -3167,9 +3188,7 @@ static int __igb_close(struct net_device *netdev, bool suspending)
 
 static int igb_close(struct net_device *netdev)
 {
-	if (netif_device_present(netdev))
-		return __igb_close(netdev, false);
-	return 0;
+	return __igb_close(netdev, false);
 }
 
 /**
@@ -4801,9 +4820,10 @@ static u32 igb_tx_cmd_type(struct sk_buff *skb, u32 tx_flags)
 	cmd_type |= IGB_SET_FLAG(tx_flags, IGB_TX_FLAGS_TSTAMP,
 				 (E1000_ADVTXD_MAC_TSTAMP));
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
 	/* insert frame checksum */
 	cmd_type ^= IGB_SET_FLAG(skb->no_fcs, 1, E1000_ADVTXD_DCMD_IFCS);
-
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0) */
 	return cmd_type;
 }
 
@@ -4970,7 +4990,10 @@ static void igb_tx_map(struct igb_ring *tx_ring,
 	/* Make sure there is space in the ring for the next send. */
 	igb_maybe_stop_tx(tx_ring, DESC_NEEDED);
 
-	if (netif_xmit_stopped(txring_txq(tx_ring)) || !skb->xmit_more) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
+	if (netif_xmit_stopped(txring_txq(tx_ring)) || !skb->xmit_more)
+#endif
+	{
 		writel(i, tx_ring->tail);
 
 		/* we need this if more than one processor can write to our tail
@@ -5544,7 +5567,7 @@ static irqreturn_t igb_msix_ring(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-#ifdef CONFIG_IGB_DCA
+#ifdef CONFIG_BACKPORT_IGB_DCA
 static void igb_update_tx_dca(struct igb_adapter *adapter,
 			      struct igb_ring *tx_ring,
 			      int cpu)
@@ -5668,7 +5691,7 @@ static int igb_notify_dca(struct notifier_block *nb, unsigned long event,
 
 	return ret_val ? NOTIFY_BAD : NOTIFY_DONE;
 }
-#endif /* CONFIG_IGB_DCA */
+#endif /* CONFIG_BACKPORT_IGB_DCA */
 
 #ifdef CONFIG_PCI_IOV
 static int igb_vf_configure(struct igb_adapter *adapter, int vf)
@@ -6375,7 +6398,7 @@ static int igb_poll(struct napi_struct *napi, int budget)
 						     napi);
 	bool clean_complete = true;
 
-#ifdef CONFIG_IGB_DCA
+#ifdef CONFIG_BACKPORT_IGB_DCA
 	if (q_vector->adapter->flags & IGB_FLAG_DCA_ENABLED)
 		igb_update_dca(q_vector);
 #endif
@@ -6598,7 +6621,11 @@ static void igb_reuse_rx_page(struct igb_ring *rx_ring,
 
 static inline bool igb_page_is_reserved(struct page *page)
 {
-	return (page_to_nid(page) != numa_mem_id()) || page_is_pfmemalloc(page);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
+	return (page_to_nid(page) != numa_mem_id()) || page->pfmemalloc;
+#else
+	return (page_to_nid(page) != numa_mem_id());
+#endif
 }
 
 static bool igb_can_reuse_rx_page(struct igb_rx_buffer *rx_buffer,
@@ -7246,8 +7273,14 @@ static void igb_vlan_mode(struct net_device *netdev, netdev_features_t features)
 	igb_rlpml_set(adapter);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 static int igb_vlan_rx_add_vid(struct net_device *netdev,
 			       __be16 proto, u16 vid)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
+static int igb_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
+#else
+static void igb_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
+#endif
 {
 	struct igb_adapter *adapter = netdev_priv(netdev);
 	struct e1000_hw *hw = &adapter->hw;
@@ -7261,11 +7294,19 @@ static int igb_vlan_rx_add_vid(struct net_device *netdev,
 
 	set_bit(vid, adapter->active_vlans);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
 	return 0;
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0) */
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 static int igb_vlan_rx_kill_vid(struct net_device *netdev,
 				__be16 proto, u16 vid)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
+static int igb_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+#else
+static void igb_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0) */
 {
 	struct igb_adapter *adapter = netdev_priv(netdev);
 	struct e1000_hw *hw = &adapter->hw;
@@ -7281,7 +7322,9 @@ static int igb_vlan_rx_kill_vid(struct net_device *netdev,
 
 	clear_bit(vid, adapter->active_vlans);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
 	return 0;
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0) */
 }
 
 static void igb_restore_vlan(struct igb_adapter *adapter)
@@ -7291,7 +7334,11 @@ static void igb_restore_vlan(struct igb_adapter *adapter)
 	igb_vlan_mode(adapter->netdev, adapter->netdev->features);
 
 	for_each_set_bit(vid, adapter->active_vlans, VLAN_N_VID)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
 		igb_vlan_rx_add_vid(adapter->netdev, htons(ETH_P_8021Q), vid);
+#else
+		igb_vlan_rx_add_vid(adapter->netdev, vid);
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0) */
 }
 
 int igb_set_spd_dplx(struct igb_adapter *adapter, u32 spd, u8 dplx)
@@ -7365,14 +7412,12 @@ static int __igb_shutdown(struct pci_dev *pdev, bool *enable_wake,
 	int retval = 0;
 #endif
 
-	rtnl_lock();
 	netif_device_detach(netdev);
 
 	if (netif_running(netdev))
 		__igb_close(netdev, true);
 
 	igb_clear_interrupt_scheme(adapter);
-	rtnl_unlock();
 
 #ifdef CONFIG_PM
 	retval = pci_save_state(pdev);
@@ -7491,15 +7536,16 @@ static int igb_resume(struct device *dev)
 
 	wr32(E1000_WUS, ~0);
 
-	rtnl_lock();
-	if (!err && netif_running(netdev))
+	if (netdev->flags & IFF_UP) {
+		rtnl_lock();
 		err = __igb_open(netdev, true);
+		rtnl_unlock();
+		if (err)
+			return err;
+	}
 
-	if (!err)
-		netif_device_attach(netdev);
-	rtnl_unlock();
-
-	return err;
+	netif_device_attach(netdev);
+	return 0;
 }
 
 static int igb_runtime_idle(struct device *dev)
@@ -7583,6 +7629,7 @@ static int igb_sriov_reinit(struct pci_dev *dev)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0)
 static int igb_pci_disable_sriov(struct pci_dev *dev)
 {
 	int err = igb_disable_sriov(dev);
@@ -7592,6 +7639,7 @@ static int igb_pci_disable_sriov(struct pci_dev *dev)
 
 	return err;
 }
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0) */
 
 static int igb_pci_enable_sriov(struct pci_dev *dev, int num_vfs)
 {
@@ -7609,6 +7657,7 @@ out:
 }
 
 #endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0)
 static int igb_pci_sriov_configure(struct pci_dev *dev, int num_vfs)
 {
 #ifdef CONFIG_PCI_IOV
@@ -7619,6 +7668,7 @@ static int igb_pci_sriov_configure(struct pci_dev *dev, int num_vfs)
 #endif
 	return 0;
 }
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0) */
 
 #ifdef CONFIG_NET_POLL_CONTROLLER
 /* Polling 'interrupt' - used by things like netconsole to send skbs
@@ -7871,8 +7921,14 @@ static void igb_check_vf_rate_limit(struct igb_adapter *adapter)
 	}
 }
 
-static int igb_ndo_set_vf_bw(struct net_device *netdev, int vf,
-			     int min_tx_rate, int max_tx_rate)
+static int igb_ndo_set_vf_bw(struct net_device *netdev, int vf
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
+			     ,
+			     int min_tx_rate, int max_tx_rate
+#else
+			     , int tx_rate
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0) */
+)
 {
 	struct igb_adapter *adapter = netdev_priv(netdev);
 	struct e1000_hw *hw = &adapter->hw;
@@ -7881,6 +7937,7 @@ static int igb_ndo_set_vf_bw(struct net_device *netdev, int vf,
 	if (hw->mac.type != e1000_82576)
 		return -EOPNOTSUPP;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
 	if (min_tx_rate)
 		return -EINVAL;
 
@@ -7894,10 +7951,21 @@ static int igb_ndo_set_vf_bw(struct net_device *netdev, int vf,
 	adapter->vf_rate_link_speed = actual_link_speed;
 	adapter->vf_data[vf].tx_rate = (u16)max_tx_rate;
 	igb_set_vf_rate_limit(hw, vf, max_tx_rate, actual_link_speed);
+#else
+	actual_link_speed = igb_link_mbps(adapter->link_speed);
+	if ((vf >= adapter->vfs_allocated_count) ||
+	    (!(rd32(E1000_STATUS) & E1000_STATUS_LU)) ||
+	    (tx_rate < 0) || (tx_rate > actual_link_speed))
+		return -EINVAL;
 
+	adapter->vf_rate_link_speed = actual_link_speed;
+	adapter->vf_data[vf].tx_rate = (u16)tx_rate;
+	igb_set_vf_rate_limit(hw, vf, tx_rate, actual_link_speed);
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0) */
 	return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)
 static int igb_ndo_set_vf_spoofchk(struct net_device *netdev, int vf,
 				   bool setting)
 {
@@ -7924,6 +7992,7 @@ static int igb_ndo_set_vf_spoofchk(struct net_device *netdev, int vf,
 	adapter->vf_data[vf].spoofchk_enabled = setting;
 	return 0;
 }
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0) */
 
 static int igb_ndo_get_vf_config(struct net_device *netdev,
 				 int vf, struct ifla_vf_info *ivi)
@@ -7933,11 +8002,17 @@ static int igb_ndo_get_vf_config(struct net_device *netdev,
 		return -EINVAL;
 	ivi->vf = vf;
 	memcpy(&ivi->mac, adapter->vf_data[vf].vf_mac_addresses, ETH_ALEN);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
 	ivi->max_tx_rate = adapter->vf_data[vf].tx_rate;
 	ivi->min_tx_rate = 0;
+#else
+	ivi->tx_rate = adapter->vf_data[vf].tx_rate;
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0) */
 	ivi->vlan = adapter->vf_data[vf].pf_vlan;
 	ivi->qos = adapter->vf_data[vf].pf_qos;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0)
 	ivi->spoofchk = adapter->vf_data[vf].spoofchk_enabled;
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3,2,0) */
 	return 0;
 }
 

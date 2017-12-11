@@ -92,15 +92,14 @@ int minstrel_get_tp_avg(struct minstrel_rate *mr, int prob_ewma)
 static inline void
 minstrel_sort_best_tp_rates(struct minstrel_sta_info *mi, int i, u8 *tp_list)
 {
-	int j;
-	struct minstrel_rate_stats *tmp_mrs;
+	int j = MAX_THR_RATES;
+	struct minstrel_rate_stats *tmp_mrs = &mi->r[j - 1].stats;
 	struct minstrel_rate_stats *cur_mrs = &mi->r[i].stats;
 
-	for (j = MAX_THR_RATES; j > 0; --j) {
+	while (j > 0 && (minstrel_get_tp_avg(&mi->r[i], cur_mrs->prob_ewma) >
+	       minstrel_get_tp_avg(&mi->r[tp_list[j - 1]], tmp_mrs->prob_ewma))) {
+		j--;
 		tmp_mrs = &mi->r[tp_list[j - 1]].stats;
-		if (minstrel_get_tp_avg(&mi->r[i], cur_mrs->prob_ewma) <=
-		    minstrel_get_tp_avg(&mi->r[tp_list[j - 1]], tmp_mrs->prob_ewma))
-			break;
 	}
 
 	if (j < MAX_THR_RATES - 1)
@@ -245,7 +244,7 @@ minstrel_update_stats(struct minstrel_priv *mp, struct minstrel_sta_info *mi)
 	memcpy(mi->max_tp_rate, tmp_tp_rate, sizeof(mi->max_tp_rate));
 	mi->max_prob_rate = tmp_prob_rate;
 
-#ifdef CONFIG_MAC80211_DEBUGFS
+#ifdef CONFIG_BACKPORT_MAC80211_DEBUGFS
 	/* use fixed index if set */
 	if (mp->fixed_rate_idx != -1) {
 		mi->max_tp_rate[0] = mp->fixed_rate_idx;
@@ -360,7 +359,7 @@ minstrel_get_rate(void *priv, struct ieee80211_sta *sta,
 	/* increase sum packet counter */
 	mi->total_packets++;
 
-#ifdef CONFIG_MAC80211_DEBUGFS
+#ifdef CONFIG_BACKPORT_MAC80211_DEBUGFS
 	if (mp->fixed_rate_idx != -1)
 		return;
 #endif
@@ -680,7 +679,7 @@ minstrel_alloc(struct ieee80211_hw *hw, struct dentry *debugfsdir)
 	mp->hw = hw;
 	mp->update_interval = 100;
 
-#ifdef CONFIG_MAC80211_DEBUGFS
+#ifdef CONFIG_BACKPORT_MAC80211_DEBUGFS
 	mp->fixed_rate_idx = (u32) -1;
 	mp->dbg_fixed_rate = debugfs_create_u32("fixed_rate_idx",
 			S_IRUGO | S_IWUGO, debugfsdir, &mp->fixed_rate_idx);
@@ -694,7 +693,7 @@ minstrel_alloc(struct ieee80211_hw *hw, struct dentry *debugfsdir)
 static void
 minstrel_free(void *priv)
 {
-#ifdef CONFIG_MAC80211_DEBUGFS
+#ifdef CONFIG_BACKPORT_MAC80211_DEBUGFS
 	debugfs_remove(((struct minstrel_priv *)priv)->dbg_fixed_rate);
 #endif
 	kfree(priv);
@@ -711,7 +710,7 @@ static u32 minstrel_get_expected_throughput(void *priv_sta)
 	 * computing cur_tp
 	 */
 	tmp_mrs = &mi->r[idx].stats;
-	tmp_cur_tp = minstrel_get_tp_avg(&mi->r[idx], tmp_mrs->prob_ewma) * 10;
+	tmp_cur_tp = minstrel_get_tp_avg(&mi->r[idx], tmp_mrs->prob_ewma);
 	tmp_cur_tp = tmp_cur_tp * 1200 * 8 / 1024;
 
 	return tmp_cur_tp;
@@ -726,7 +725,7 @@ const struct rate_control_ops mac80211_minstrel = {
 	.free = minstrel_free,
 	.alloc_sta = minstrel_alloc_sta,
 	.free_sta = minstrel_free_sta,
-#ifdef CONFIG_MAC80211_DEBUGFS
+#ifdef CONFIG_BACKPORT_MAC80211_DEBUGFS
 	.add_sta_debugfs = minstrel_add_sta_debugfs,
 	.remove_sta_debugfs = minstrel_remove_sta_debugfs,
 #endif

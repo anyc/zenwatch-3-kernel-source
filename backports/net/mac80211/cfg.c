@@ -224,7 +224,7 @@ static int ieee80211_add_key(struct wiphy *wiphy, struct net_device *dev,
 		/* no MFP (yet) */
 		break;
 	case NL80211_IFTYPE_MESH_POINT:
-#ifdef CONFIG_MAC80211_MESH
+#ifdef CONFIG_BACKPORT_MAC80211_MESH
 		if (sdata->u.mesh.security != IEEE80211_MESH_SEC_NONE)
 			key->conf.flags |= IEEE80211_KEY_FLAG_RX_MGMT;
 		break;
@@ -738,8 +738,6 @@ static int ieee80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 	default:
 		return -EINVAL;
 	}
-	sdata->u.ap.req_smps = sdata->smps_mode;
-
 	sdata->needed_rx_chains = sdata->local->rx_chains;
 
 	mutex_lock(&local->mtx);
@@ -909,7 +907,7 @@ static int ieee80211_stop_ap(struct wiphy *wiphy, struct net_device *dev)
 
 	/* free all potentially still buffered bcast frames */
 	local->total_ps_buffered -= skb_queue_len(&sdata->u.ap.ps.bc_buf);
-	ieee80211_purge_tx_queue(&local->hw, &sdata->u.ap.ps.bc_buf);
+	skb_queue_purge(&sdata->u.ap.ps.bc_buf);
 
 	mutex_lock(&local->mtx);
 	ieee80211_vif_copy_chanctx_to_vlans(sdata, true);
@@ -1149,7 +1147,7 @@ static int sta_apply_parameters(struct ieee80211_local *local,
 	}
 
 	if (ieee80211_vif_is_mesh(&sdata->vif)) {
-#ifdef CONFIG_MAC80211_MESH
+#ifdef CONFIG_BACKPORT_MAC80211_MESH
 		u32 changed = 0;
 
 		if (params->sta_modify_mask & STATION_PARAM_APPLY_PLINK_STATE) {
@@ -1418,7 +1416,7 @@ out_err:
 	return err;
 }
 
-#ifdef CONFIG_MAC80211_MESH
+#ifdef CONFIG_BACKPORT_MAC80211_MESH
 static int ieee80211_add_mpath(struct wiphy *wiphy, struct net_device *dev,
 			       const u8 *dst, const u8 *next_hop)
 {
@@ -2240,7 +2238,7 @@ static void ieee80211_rfkill_poll(struct wiphy *wiphy)
 	drv_rfkill_poll(local);
 }
 
-#ifdef CONFIG_NL80211_TESTMODE
+#ifdef CONFIG_BACKPORT_NL80211_TESTMODE
 static int ieee80211_testmode_cmd(struct wiphy *wiphy,
 				  struct wireless_dev *wdev,
 				  void *data, int len)
@@ -2896,7 +2894,7 @@ static int ieee80211_set_after_csa_beacon(struct ieee80211_sub_if_data *sdata,
 			return err;
 		*changed |= err;
 		break;
-#ifdef CONFIG_MAC80211_MESH
+#ifdef CONFIG_BACKPORT_MAC80211_MESH
 	case NL80211_IFTYPE_MESH_POINT:
 		err = ieee80211_mesh_finish_csa(sdata);
 		if (err < 0)
@@ -3093,7 +3091,7 @@ static int ieee80211_set_csa_beacon(struct ieee80211_sub_if_data *sdata,
 		ieee80211_send_action_csa(sdata, params);
 
 		break;
-#ifdef CONFIG_MAC80211_MESH
+#ifdef CONFIG_BACKPORT_MAC80211_MESH
 	case NL80211_IFTYPE_MESH_POINT: {
 		struct ieee80211_if_mesh *ifmsh = &sdata->u.mesh;
 
@@ -3274,7 +3272,7 @@ static int ieee80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 		if (!sdata->vif.bss_conf.ibss_joined)
 			need_offchan = true;
 		/* fall through */
-#ifdef CONFIG_MAC80211_MESH
+#ifdef CONFIG_BACKPORT_MAC80211_MESH
 	case NL80211_IFTYPE_MESH_POINT:
 		if (ieee80211_vif_is_mesh(&sdata->vif) &&
 		    !sdata->u.mesh.mesh_id_len)
@@ -3358,7 +3356,6 @@ static int ieee80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 	/* Update CSA counters */
 	if (sdata->vif.csa_active &&
 	    (sdata->vif.type == NL80211_IFTYPE_AP ||
-	     sdata->vif.type == NL80211_IFTYPE_MESH_POINT ||
 	     sdata->vif.type == NL80211_IFTYPE_ADHOC) &&
 	    params->n_csa_offsets) {
 		int i;
@@ -3717,7 +3714,7 @@ const struct cfg80211_ops mac80211_config_ops = {
 	.get_station = ieee80211_get_station,
 	.dump_station = ieee80211_dump_station,
 	.dump_survey = ieee80211_dump_survey,
-#ifdef CONFIG_MAC80211_MESH
+#ifdef CONFIG_BACKPORT_MAC80211_MESH
 	.add_mpath = ieee80211_add_mpath,
 	.del_mpath = ieee80211_del_mpath,
 	.change_mpath = ieee80211_change_mpath,

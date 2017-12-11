@@ -137,7 +137,7 @@ static const struct wiphy_wowlan_tcp_support iwl_mvm_wowlan_tcp_support = {
 };
 #endif
 
-#ifdef CONFIG_IWLWIFI_BCAST_FILTERING
+#ifdef CONFIG_BACKPORT_IWLWIFI_BCAST_FILTERING
 /*
  * Use the reserved field to indicate magic values.
  * these values will only be used internally by the driver,
@@ -602,7 +602,7 @@ int iwl_mvm_mac_setup_register(struct iwl_mvm *mvm)
 	}
 #endif
 
-#ifdef CONFIG_IWLWIFI_BCAST_FILTERING
+#ifdef CONFIG_BACKPORT_IWLWIFI_BCAST_FILTERING
 	/* assign default bcast filtering configuration */
 	mvm->bcast_filters = iwl_mvm_default_bcast_filters;
 #endif
@@ -1404,7 +1404,7 @@ void __iwl_mvm_mac_stop(struct iwl_mvm *mvm)
 	 * The work item could be running or queued if the
 	 * ROC time event stops just as we get here.
 	 */
-	flush_work(&mvm->roc_done_wk);
+	cancel_work_sync(&mvm->roc_done_wk);
 
 	iwl_trans_stop_device(mvm->trans);
 
@@ -1721,7 +1721,7 @@ static void iwl_mvm_mac_remove_interface(struct ieee80211_hw *hw,
 	 */
 	if (vif->type == NL80211_IFTYPE_AP ||
 	    vif->type == NL80211_IFTYPE_ADHOC) {
-#ifdef CONFIG_NL80211_TESTMODE
+#ifdef CONFIG_BACKPORT_NL80211_TESTMODE
 		if (vif == mvm->noa_vif) {
 			mvm->noa_vif = NULL;
 			mvm->noa_duration = 0;
@@ -1766,11 +1766,6 @@ static void iwl_mvm_mc_iface_iterator(void *_data, u8 *mac,
 	struct iwl_mvm_mc_iter_data *data = _data;
 	struct iwl_mvm *mvm = data->mvm;
 	struct iwl_mcast_filter_cmd *cmd = mvm->mcast_filter_cmd;
-	struct iwl_host_cmd hcmd = {
-		.id = MCAST_FILTER_CMD,
-		.flags = CMD_ASYNC,
-		.dataflags[0] = IWL_HCMD_DFL_NOCOPY,
-	};
 	int ret, len;
 
 	/* if we don't have free ports, mcast frames will be dropped */
@@ -1785,10 +1780,7 @@ static void iwl_mvm_mc_iface_iterator(void *_data, u8 *mac,
 	memcpy(cmd->bssid, vif->bss_conf.bssid, ETH_ALEN);
 	len = roundup(sizeof(*cmd) + cmd->count * ETH_ALEN, 4);
 
-	hcmd.len[0] = len;
-	hcmd.data[0] = cmd;
-
-	ret = iwl_mvm_send_cmd(mvm, &hcmd);
+	ret = iwl_mvm_send_cmd_pdu(mvm, MCAST_FILTER_CMD, CMD_ASYNC, len, cmd);
 	if (ret)
 		IWL_ERR(mvm, "mcast filter cmd error. ret=%d\n", ret);
 }
@@ -1869,7 +1861,7 @@ out:
 	*total_flags = 0;
 }
 
-#ifdef CONFIG_IWLWIFI_BCAST_FILTERING
+#ifdef CONFIG_BACKPORT_IWLWIFI_BCAST_FILTERING
 struct iwl_bcast_iter_data {
 	struct iwl_mvm *mvm;
 	struct iwl_bcast_filter_cmd *cmd;
@@ -1982,7 +1974,7 @@ bool iwl_mvm_bcast_filter_build_cmd(struct iwl_mvm *mvm,
 	cmd->max_bcast_filters = ARRAY_SIZE(cmd->filters);
 	cmd->max_macs = ARRAY_SIZE(cmd->macs);
 
-#ifdef CONFIG_IWLWIFI_DEBUGFS
+#ifdef CONFIG_BACKPORT_IWLWIFI_DEBUGFS
 	/* use debugfs filters/macs if override is configured */
 	if (mvm->dbgfs_bcast_filtering.override) {
 		memcpy(cmd->filters, &mvm->dbgfs_bcast_filtering.cmd.filters,
@@ -2285,7 +2277,6 @@ static void iwl_mvm_stop_ap_ibss(struct ieee80211_hw *hw,
 		iwl_mvm_remove_time_event(mvm, mvmvif,
 					  &mvmvif->time_event_data);
 		RCU_INIT_POINTER(mvm->csa_vif, NULL);
-		mvmvif->csa_countdown = false;
 	}
 
 	if (rcu_access_pointer(mvm->csa_tx_blocked_vif) == vif) {
@@ -2804,10 +2795,6 @@ static int iwl_mvm_mac_sched_scan_start(struct ieee80211_hw *hw,
 {
 	struct iwl_mvm *mvm = IWL_MAC80211_GET_MVM(hw);
 	int ret;
-
-	/* we don't support "match all" in the firmware */
-	if (!req->n_match_sets)
-		return -EOPNOTSUPP;
 
 	if (!(mvm->fw->ucode_capa.capa[0] & IWL_UCODE_TLV_CAPA_UMAC_SCAN)) {
 		ret = iwl_mvm_cancel_scan_wait_notif(mvm, IWL_MVM_SCAN_OS);
@@ -3646,7 +3633,7 @@ static int iwl_mvm_set_tim(struct ieee80211_hw *hw,
 	return iwl_mvm_mac_ctxt_beacon_changed(mvm, mvm_sta->vif);
 }
 
-#ifdef CONFIG_NL80211_TESTMODE
+#ifdef CONFIG_BACKPORT_NL80211_TESTMODE
 static const struct nla_policy iwl_mvm_tm_policy[IWL_MVM_TM_ATTR_MAX + 1] = {
 	[IWL_MVM_TM_ATTR_CMD] = { .type = NLA_U32 },
 	[IWL_MVM_TM_ATTR_NOA_DURATION] = { .type = NLA_U32 },

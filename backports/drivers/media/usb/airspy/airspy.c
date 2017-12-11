@@ -16,6 +16,7 @@
 
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/mm.h>
 #include <linux/usb.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
@@ -132,7 +133,7 @@ struct airspy {
 	int            urbs_submitted;
 
 	/* USB control message buffer */
-	#define BUF_SIZE 128
+	#define BUF_SIZE 24
 	u8 buf[BUF_SIZE];
 
 	/* Current configuration */
@@ -1072,7 +1073,7 @@ static int airspy_probe(struct usb_interface *intf,
 	if (ret) {
 		dev_err(s->dev, "Failed to register as video device (%d)\n",
 				ret);
-		goto err_free_controls;
+		goto err_unregister_v4l2_dev;
 	}
 	dev_info(s->dev, "Registered as %s\n",
 			video_device_node_name(&s->vdev));
@@ -1081,6 +1082,7 @@ static int airspy_probe(struct usb_interface *intf,
 
 err_free_controls:
 	v4l2_ctrl_handler_free(&s->hdl);
+err_unregister_v4l2_dev:
 	v4l2_device_unregister(&s->v4l2_dev);
 err_free_mem:
 	kfree(s);
